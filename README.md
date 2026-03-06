@@ -76,7 +76,7 @@ Backend chịu trách nhiệm xử lý các tác vụ xử lý ngôn ngữ tự 
 3. Cấu hình kết nối tới Backend và Supabase thông qua file `.env`.
 4. Khởi chạy ứng dụng:
    ```bash
-   npx expo start
+   npx expo start -c
    ```
    _Nhấn `a` để mở trên Android Emulator, hoặc `i` cho iOS Simulator._
 
