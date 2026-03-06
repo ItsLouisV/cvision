@@ -28,10 +28,10 @@ export default function RootLayout() {
                 name="modal"
                 options={{ presentation: 'modal' }}
               />
-              <Stack.Screen name="conv" />
+          
             </Stack>
             <StatusBar style="auto" />
-            <Toast config={toastConfig} position='top' topOffset={80} />
+            <Toast config={toastConfig} position='top' topOffset={60} />
           </ThemeProvider>
         </ChatProvider>
       </KeyboardProvider>
