@@ -27,6 +27,8 @@ export default function UploadCVScreen() {
 
   // Khai báo state để lưu thông tin user
   const [user, setUser] = useState<any>(null);
+  const [isPremium, setIsPremium] = useState(false);
+  const IP_ADDRESS = '[IP_ADDRESS]';
 
   // Hàm lấy thông tin user
   useEffect(() => {
@@ -40,6 +42,24 @@ export default function UploadCVScreen() {
      }
     };
     getUser();
+
+    // Sau này làm tài khoản premium.
+
+    // const checkPremium = async () => {
+    //   const { data: { user } } = await supabase.auth.getUser();
+    //   if (user) {
+    //     const { data, error } = await supabase
+    //       .from('profiles')
+    //       .select('is_premium')
+    //       .eq('id', user.id)
+    //       .single();
+
+    //     if (data) {
+    //       setIsPremium(data.is_premium);
+    //     }
+    //   }
+    // };
+    // checkPremium();
   }, []);
 
   // 1. Hàm chọn File từ điện thoại
@@ -74,7 +94,7 @@ export default function UploadCVScreen() {
 
       // Thay IP máy tính Louis ở đây
       // Trong file upload.tsx (Mobile)
-        const response = await axios.post(`http://192.168.1.138:8000/cv/upload?user_id=${user?.id}`, formData, {
+        const response = await axios.post(`http://[IP_ADDRESS]/cv/upload?user_id=${user?.id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
