@@ -13,7 +13,11 @@ export default function ChatLayout() {
         headerShown: false,
         contentStyle: { backgroundColor: isDark ? '#000' : '#f2f2f7' },
       }}>
-      <Stack.Screen name="index" />
+      <Stack.Screen name="index"
+        options={{ 
+          gestureEnabled: false, 
+          animation: 'fade' 
+        }}/>
       <Stack.Screen name="upload" />
     </Stack>
   )

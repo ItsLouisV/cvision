@@ -11,14 +11,22 @@ class Config:
 
     # Gemini AI
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    GEMINI_MODEL = "gemini-1.5-pro"  # Dùng model mạnh nhất
-    EMBEDDING_MODEL = "models/embedding-001"
 
-    # Vector dimensions (Gemini embedding)
+    # Chuyển sang 3.1 Flash Lite để có 500 request/ngày
+    GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
+
+    # SỬA Ở ĐÂY: Dùng đúng model embedding có trong danh sách của bạn
+    EMBEDDING_MODEL = "gemini-embedding-001"
+
+    # DeepSeek AI (Fallback)
+    DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+    DEEPSEEK_MODEL = "deepseek-chat"
+
+    # Vector dimensions
     VECTOR_DIM = 768
 
     # Matching thresholds
-    MIN_MATCH_SCORE = 0.7  # 70% similarity
+    MIN_MATCH_SCORE = 0.7
     MAX_MATCH_COUNT = 20
 
     # File upload

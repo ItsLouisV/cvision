@@ -36,7 +36,7 @@ async def startup():
     logger.info("✅ Supabase ready")
 
     # Khởi tạo Gemini
-    gemini.model  # Test connection
+    gemini.client  # Test connection
     logger.info("✅ Gemini AI ready")
 
     logger.info("🎯 Service sẵn sàng!")
@@ -60,4 +60,4 @@ app.include_router(interview.router, prefix="/api/v1")
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True, ws_ping_interval=None, ws_ping_timeout=None)

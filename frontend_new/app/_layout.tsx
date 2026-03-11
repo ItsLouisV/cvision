@@ -1,15 +1,19 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import 'react-native-reanimated';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import "react-native-reanimated";
 
-import { KeyboardProvider } from 'react-native-keyboard-controller';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { ChatProvider } from '@/components/chat-provider';
+import { ChatProvider } from "@/components/chat-provider";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 
-import Toast from 'react-native-toast-message';
-import { toastConfig } from '@/components/ui/toast-config';
+import { toastConfig } from "@/components/ui/toast-config";
+import Toast from "react-native-toast-message";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -18,20 +22,17 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <KeyboardProvider>
         <ChatProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <ThemeProvider
+            value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+          >
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />
-              <Stack.Screen name="flash" />
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="(tabs)" />
-              <Stack.Screen
-                name="modal"
-                options={{ presentation: 'modal' }}
-              />
-          
+              <Stack.Screen name="modal" options={{ presentation: "modal" }} />
             </Stack>
             <StatusBar style="auto" />
-            <Toast config={toastConfig} position='top' topOffset={60} />
+            <Toast config={toastConfig} position="top" topOffset={60} />
           </ThemeProvider>
         </ChatProvider>
       </KeyboardProvider>

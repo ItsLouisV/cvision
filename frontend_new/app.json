@@ -36,7 +36,9 @@
         {
           "photosPermission": "Allow CVision to access your photos"
         }
-      ]
+      ],
+      "expo-audio",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

@@ -10,6 +10,8 @@ class InterviewAIService:
     async def generate_question(self,
                                 job_title: str,
                                 requirements: str,
+                                cv_data: str,
+                                user_answers_count: int,
                                 history: List[Dict[str, str]]) -> Dict[str, Any]:
         """Tạo câu hỏi phỏng vấn tiếp theo"""
 
@@ -22,7 +24,8 @@ class InterviewAIService:
         prompt = INTERVIEW_PROMPT.format(
             job_title=job_title,
             requirements=requirements,
-            context="Đang phỏng vấn thực tế",
+            cv_data=cv_data,
+            user_answers_count=user_answers_count,
             history=history_text
         )
 
@@ -49,19 +52,28 @@ class InterviewAIService:
             interview_text += f"{role}: {msg['content']}\n"
 
         prompt = f"""
-        Đánh giá buổi phỏng vấn cho vị trí {job_title}:
+        Bạn là chuyên gia phỏng vấn nhân sự cấp cao. Hãy đánh giá buổi phỏng vấn cho vị trí {job_title}:
 
+        Dưới đây là Lịch sử trò chuyện:
         {interview_text}
 
-        Hãy đánh giá:
-        1. Điểm kỹ thuật (0-100)
-        2. Điểm giao tiếp (0-100)  
-        3. Điểm thái độ (0-100)
-        4. 3 điểm mạnh
-        5. 3 điểm cần cải thiện
+        Hãy đánh giá Ứng viên dựa trên các tiêu chí:
+        1. Điểm kỹ thuật (1-100)
+        2. Điểm giao tiếp (1-100)
+        3. Điểm tổng thể (1-100)
+        4. Đưa ra chính xác 3 điểm mạnh
+        5. Đưa ra chính xác 3 điểm cần cải thiện
         6. Lời khuyên phát triển
 
-        Trả về JSON.
+        BẮT BUỘC PHẢI TRẢ VỀ CHUẨN JSON VỚI ĐÚNG CÁC TRƯỜNG DỮ LIỆU SAU, KHÔNG THÊM BỚT BẤT KỲ VĂN BẢN NÀO:
+        {{
+            "overall_score": 85,
+            "technical_score": 90,
+            "communication_score": 80,
+            "strengths": ["Điểm mạnh 1", "Điểm mạnh 2", "Điểm mạnh 3"],
+            "weaknesses": ["Điểm yếu 1", "Điểm yếu 2", "Điểm yếu 3"],
+            "advice": "Lời khuyên chi tiết..."
+        }}
         """
 
         try:

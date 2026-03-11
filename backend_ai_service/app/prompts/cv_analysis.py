@@ -26,8 +26,8 @@ YÊU CẦU PHÂN TÍCH:
 
 5. ĐÁNH GIÁ TỔNG QUAN:
 - Điểm CV (0-100)
-- 3 điểm mạnh nhất
-- 3 điểm cần cải thiện
+- Ít nhất 3 điểm, nhiều nhất 8 điểm mạnh nhất
+- Ít nhất 3 điểm, nhiều nhất 8 điểm cần cải thiện
 - Ngành nghề phù hợp
 - Mức lương đề xuất (triệu VND)
 

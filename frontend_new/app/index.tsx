@@ -1,64 +1,126 @@
-
-import { useEffect, useState } from 'react';
-import { Redirect } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-import { View, ActivityIndicator, Text } from 'react-native';
-import { Session } from '@supabase/supabase-js';
+import { Colors } from "@/constants/themes";
+import { supabase } from "@/lib/supabase";
+import { Session } from "@supabase/supabase-js";
+import { Redirect } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { Animated, StyleSheet, Text, View, useColorScheme } from "react-native";
 
 export default function Index() {
-    const [session, setSession] = useState<Session | null>(null);
-    const [loading, setLoading] = useState(true);
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? "light"];
+  const isDark = colorScheme === "dark";
 
-    useEffect(() => {
-        const checkSession = async () => {
-            // 1. Lấy session hiện tại từ AsyncStorage
-            const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-            
-            if (error) {
-                console.log("❌ Lỗi lấy Session:", error.message);
-            }
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
 
-            if (currentSession) {
-                console.log("✅ ĐÃ TÌM THẤY SESSION!");
-                console.log("--- CHI TIẾT SESSION ---");
-                console.log("📧 Email:", currentSession.user.email);
-                console.log("👤 Role trong Metadata:", currentSession.user.user_metadata?.role);
-                console.log("🔑 Access Token (rất dài):", currentSession.access_token.substring(0, 50) + "...");
-                console.log("⏳ Hết hạn vào:", new Date(currentSession.expires_at! * 1000).toLocaleString());
-                console.log("-----------------------");
-            } else {
-                console.log("ℹ️ Chưa có Session (Người dùng chưa đăng nhập)");
-            }
+  // Animation cho con logo
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-            setSession(currentSession);
-            setLoading(false);
-        };
+  useEffect(() => {
+    // Chạy hiệu ứng mờ / tỏ liên tục cho Logo
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
 
-        checkSession();
+    const checkSession = async () => {
+      // Đảm bảo Flash Screen tồn tại ít nhất 1.5 giây cho ứng viên nhìn logo
+      const startTime = Date.now();
 
-        // Lắng nghe nếu user logout hoặc login ở chỗ khác
-        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-            console.log("🔔 Trạng thái Auth thay đổi:", _event);
-            setSession(session);
-        });
+      // 1. Lấy session hiện tại từ AsyncStorage
+      const {
+        data: { session: currentSession },
+        error,
+      } = await supabase.auth.getSession();
 
-        return () => {
-            authListener.subscription.unsubscribe();
-        };
-    }, []);
+      if (error) {
+        console.log("❌ Lỗi lấy Session:", error.message);
+      }
 
-    if (loading) {
-        return (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-            <ActivityIndicator size="large" color="#8e44ad" />
-            <Text style={{ marginTop: 10, color: '#8e44ad' }}>Đang kiểm tra phiên làm việc...</Text>
-          </View>
-        );
-    }
+      if (currentSession) {
+        console.log("✅ ĐÃ TÌM THẤY SESSION!");
+      } else {
+        console.log("ℹ️ Chưa có Session (Người dùng chưa đăng nhập)");
+      }
 
-    if (!session) {
-        return <Redirect href="/(auth)/login" />;
-    }
+      // Tính thời gian fetch để delay nếu quá nhanh
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 1500) {
+        await new Promise((resolve) => setTimeout(resolve, 1500 - elapsed));
+      }
 
-    return <Redirect href="/(tabs)/home" />;
+      setSession(currentSession);
+      setLoading(false);
+    };
+
+    checkSession();
+
+    // Lắng nghe nếu user logout hoặc login ở chỗ khác
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        console.log("🔔 Trạng thái Auth thay đổi:", _event);
+        setSession(session);
+      },
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <View
+        style={[
+          styles.flashContainer,
+          { backgroundColor: isDark ? "#000" : "#F8F9FA" },
+        ]}
+      >
+        <Animated.Image
+          source={require("@/assets/images/logo.png")}
+          style={[styles.logo, { transform: [{ scale: pulseAnim }] }]}
+          resizeMode="contain"
+        />
+        <Text style={[styles.loadingText, { color: theme.text }]}>
+          Đang kiểm tra phiên làm việc...
+        </Text>
+      </View>
+    );
+  }
+
+  if (!session) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  return <Redirect href="/(tabs)/home" />;
 }
+
+const styles = StyleSheet.create({
+  flashContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  logo: {
+    width: 200,
+    height: 200,
+    marginBottom: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: "#8e44ad",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+});

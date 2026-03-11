@@ -1,19 +1,19 @@
-import { Tabs } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Platform, View, ActivityIndicator } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Tabs } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Platform, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { Colors } from '@/constants/themes';
-import { useColorScheme } from '@/components/useColorScheme';
-import { House, Flame, UserRound, Sparkles } from 'lucide-react-native';
-import CreateButton from './_create';
-import { supabase } from '@/lib/supabase';
+import { HapticTab } from "@/components/haptic-tab";
+import { useColorScheme } from "@/components/useColorScheme";
+import { Colors } from "@/constants/themes";
+import { supabase } from "@/lib/supabase";
+import { Flame, House, Sparkles, UserRound } from "lucide-react-native";
+import CreateButton from "./_create";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? "light"];
 
   // State quản lý vai trò
   const [role, setRole] = useState<string | null>(null);
@@ -22,14 +22,16 @@ export default function TabLayout() {
   useEffect(() => {
     async function getUserRole() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (user) {
           const { data } = await supabase
-            .from('user_profiles')
-            .select('role')
-            .eq('id', user.id)
+            .from("user_profiles")
+            .select("role")
+            .eq("id", user.id)
             .single();
-          setRole(data?.role || 'candidate');
+          setRole(data?.role || "candidate");
         }
       } catch (error) {
         console.error("Lỗi lấy role:", error);
@@ -40,13 +42,18 @@ export default function TabLayout() {
     getUserRole();
   }, []);
 
-  const TAB_BAR_HEIGHT = Platform.OS === 'ios' && insets.bottom > 0 
-    ? 60 + insets.bottom 
-    : 68; 
+  const TAB_BAR_HEIGHT =
+    Platform.OS === "ios" && insets.bottom > 0 ? 60 + insets.bottom : 68;
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: theme.background }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          backgroundColor: theme.background,
+        }}
+      >
         <ActivityIndicator color={theme.tint} />
       </View>
     );
@@ -56,7 +63,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: theme.tint,
-        tabBarInactiveTintColor: colorScheme === 'dark' ? '#555' : '#999',
+        tabBarInactiveTintColor: colorScheme === "dark" ? "#555" : "#999",
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarShowLabel: false,
@@ -67,24 +74,24 @@ export default function TabLayout() {
           height: TAB_BAR_HEIGHT,
           paddingBottom: insets.bottom > 0 ? insets.bottom : 15,
           paddingTop: 10,
-          shadowColor: '#000',
+          shadowColor: "#000",
           shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: colorScheme === 'dark' ? 0.2 : 0.05,
+          shadowOpacity: colorScheme === "dark" ? 0.2 : 0.05,
           shadowRadius: 10,
         },
-      }}>
-      
+      }}
+    >
       <Tabs.Screen
         name="home"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <House 
-              color={color} 
-              size={24} 
-              strokeWidth={focused ? 2.5 : 2} 
-              fill={focused ? color : 'none'} 
+            <House
+              color={color}
+              size={24}
+              strokeWidth={focused ? 2.5 : 2}
+              fill={focused ? color : "none"}
             />
-          )
+          ),
         }}
       />
 
@@ -92,13 +99,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="analysis"
         options={{
-          href: role === 'candidate' ? '/analysis' : null,
+          href: role === "candidate" ? "/(tabs)/analysis" : null,
           tabBarIcon: ({ color, focused }) => (
-            <Sparkles 
+            <Sparkles
               color={color}
-              size={24} 
-              strokeWidth={focused ? 2.5 : 2} 
-              fill={focused ? color : 'none'} 
+              size={24}
+              strokeWidth={focused ? 2.5 : 2}
+              fill={focused ? color : "none"}
             />
           ),
         }}
@@ -113,8 +120,14 @@ export default function TabLayout() {
         }}
         options={{
           tabBarButton: (props) => (
-            <View style={{ justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-               <CreateButton focused={!!props.accessibilityState?.selected} />
+            <View
+              style={{
+                justifyContent: "center",
+                alignItems: "center",
+                flex: 1,
+              }}
+            >
+              <CreateButton focused={!!props.accessibilityState?.selected} />
             </View>
           ),
         }}
@@ -124,15 +137,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="activity"
         options={{
-          href: role === 'candidate' ? '/activity' : null,
+          href: role === "candidate" ? "/(tabs)/activity" : null,
           tabBarIcon: ({ color, focused }) => (
-            <Flame 
+            <Flame
               color={color}
-              size={26} 
-              strokeWidth={focused ? 2.5 : 2} 
-              fill={focused ? color : 'none'} 
+              size={26}
+              strokeWidth={focused ? 2.5 : 2}
+              fill={focused ? color : "none"}
             />
-          )
+          ),
         }}
       />
 
@@ -140,13 +153,13 @@ export default function TabLayout() {
         name="profile"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <UserRound 
+            <UserRound
               color={color}
-              size={26} 
-              strokeWidth={focused ? 2.5 : 2} 
-              fill={focused ? color : 'none'} 
+              size={26}
+              strokeWidth={focused ? 2.5 : 2}
+              fill={focused ? color : "none"}
             />
-          )
+          ),
         }}
       />
     </Tabs>

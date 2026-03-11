@@ -1,9 +1,17 @@
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
 from app.core.supabase import supabase
 from app.services.interview_ai import interview_ai
 import json
 import uuid
 import logging
+
+class StartInterviewRequest(BaseModel):
+    user_id: str
+    full_name: str = "Ứng viên"
+    job_title: str
+    level: str = "Junior"
+    job_id: str = None
 
 router = APIRouter(prefix="/interview", tags=["Interview"])
 logger = logging.getLogger(__name__)
@@ -23,7 +31,7 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
 
         # Lấy thông tin session
         session = supabase_client.table('interview_sessions') \
-            .select('*, jobs(*)') \
+            .select('*, job_posts(*)') \
             .eq('id', session_id) \
             .execute()
 
@@ -33,7 +41,11 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
             return
 
         session_data = session.data[0]
-        job_data = session_data.get('jobs', {})
+        job_data = session_data.get('job_posts', {})
+        
+        # Lấy title / requirements từ custom field nếu không có job_id
+        final_job_title = job_data.get('title') if job_data else session_data.get('custom_job_title', 'Không xác định')
+        final_requirements = job_data.get('requirements', '') if job_data else f"Ứng viên apply vị trí {session_data.get('custom_level')}."
 
         # Lấy lịch sử tin nhắn
         messages = supabase_client.table('interview_messages') \
@@ -47,20 +59,42 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
             for msg in messages.data
         ]
 
+        # Lấy CV mặc định của ứng viên để làm Context
+        user_id = session_data.get('user_id')
+        cv_text = "Không có thông tin CV."
+        if user_id:
+            cv_response = supabase_client.table('user_cvs') \
+                .select('parsed_data, raw_text') \
+                .eq('user_id', user_id) \
+                .eq('is_default', True) \
+                .execute()
+            if cv_response.data:
+                cv_data = cv_response.data[0]
+                parsed = cv_data.get('parsed_data')
+                if parsed:
+                    cv_text = json.dumps(parsed, ensure_ascii=False)
+                else:
+                    cv_text = cv_data.get('raw_text', "Không có thông tin CV.")
+
         active_sessions[session_id] = websocket
 
         # Gửi tin nhắn chào mừng
         await websocket.send_json({
             "type": "system",
-            "content": f"Chào mừng đến với buổi phỏng vấn cho vị trí {job_data.get('title', 'không xác định')}!",
-            "job_info": job_data
+            "content": f"Chào mừng đến với buổi phỏng vấn cho vị trí {final_job_title}!"
         })
 
         # Nếu chưa có tin nhắn, AI hỏi câu đầu tiên
         if len(history) == 0:
+            await websocket.send_json({
+                "type": "typing",
+                "content": "AI đang đọc CV của bạn, hãy chờ chút nhé..."
+            })
             first_question = await interview_ai.generate_question(
-                job_title=job_data.get('title', ''),
-                requirements=job_data.get('requirements', ''),
+                job_title=final_job_title,
+                requirements=final_requirements,
+                cv_data=cv_text,
+                user_answers_count=0,
                 history=[]
             )
 
@@ -77,8 +111,12 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
         while True:
             # Nhận tin nhắn từ ứng viên
             data = await websocket.receive_json()
+            
+            # Bỏ qua tin nhắn giữ kết nối (heartbeat ping)
+            if data.get('type') == 'ping':
+                continue
 
-            if data['type'] == 'answer':
+            if data.get('type') == 'answer':
                 # Lưu câu trả lời
                 supabase_client.table('interview_messages').insert({
                     "session_id": session_id,
@@ -89,12 +127,32 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                 # Cập nhật history
                 history.append({"sender": "user", "content": data['content']})
 
-                # AI sinh câu hỏi tiếp theo
-                question = await interview_ai.generate_question(
-                    job_title=job_data.get('title', ''),
-                    requirements=job_data.get('requirements', ''),
-                    history=history
-                )
+                # Đếm số lượng câu trả lời của ứng viên
+                user_answers_count = sum(1 for m in history if m['sender'] == 'user')
+
+                if user_answers_count >= 15:
+                    question = {
+                        "type": "summary",
+                        "content": "Thời lượng phỏng vấn đã đạt tối đa 15 câu hỏi. Rất cảm ơn bạn đã tham gia buổi phỏng vấn hôm nay."
+                    }
+                else:
+                    await websocket.send_json({
+                        "type": "typing",
+                        "content": "AI đang suy nghĩ..."
+                    })
+                    # AI sinh câu hỏi tiếp theo
+                    question = await interview_ai.generate_question(
+                        job_title=final_job_title,
+                        requirements=final_requirements,
+                        cv_data=cv_text,
+                        user_answers_count=user_answers_count,
+                        history=history
+                    )
+
+                # Bảo vệ: Nếu dưới 5 câu mà AI định kết thúc, ép thành câu hỏi để hỏi tiếp
+                if question.get('type') == 'summary' and user_answers_count < 5:
+                    question['type'] = 'question'
+                    question['content'] = "Cảm ơn bạn. Tiếp tục nhé, " + question.get('content', '')
 
                 # Lưu câu hỏi AI
                 supabase_client.table('interview_messages').insert({
@@ -103,17 +161,37 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                     "content": question['content']
                 }).execute()
 
-                # Gửi câu hỏi
+                # Nếu là câu cuối, chạy đánh giá chi tiết
+                if question.get('type') == 'summary':
+                    await websocket.send_json({
+                        "type": "typing",
+                        "content": "Đang phân tích điểm số và đánh giá tổng quan..."
+                    })
+                    eval_result = await interview_ai.evaluate_interview(
+                        job_title=final_job_title,
+                        messages=history
+                    )
+                    question['evaluation'] = {
+                        "overall_score": int(float(eval_result.get('overall_score', 0))),
+                        "technical_score": int(float(eval_result.get('technical_score', 0))),
+                        "communication_score": int(float(eval_result.get('communication_score', 0))),
+                        "strengths": eval_result.get('strengths', []),
+                        "weaknesses": eval_result.get('weaknesses', []),
+                        "advice": eval_result.get('advice', '')
+                    }
+
+                # Gửi câu hỏi hoặc Summary
                 await websocket.send_json(question)
 
-                # Nếu là câu cuối, đánh giá và kết thúc
+                # Nếu là câu cuối, cập nhật DB và đóng kết nối
                 if question.get('type') == 'summary':
+                    eval_json_str = json.dumps(question.get('evaluation', {}), ensure_ascii=False)
                     # Cập nhật session
                     supabase_client.table('interview_sessions') \
                         .update({
                         "status": "completed",
-                        "overall_score": question.get('evaluation', {}).get('overall_score'),
-                        "overall_feedback": question.get('content')
+                        "overall_score": int(float(question.get('evaluation', {}).get('overall_score', 0))),
+                        "overall_feedback": eval_json_str
                     }) \
                         .eq('id', session_id) \
                         .execute()
@@ -131,18 +209,17 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
 
 
 @router.post("/start")
-async def start_interview(
-        user_id: str,
-        job_id: str = None
-):
+async def start_interview(request: StartInterviewRequest):
     """Bắt đầu buổi phỏng vấn mới"""
 
     supabase_client = supabase.get_client()
 
     # Tạo session mới
     session_data = {
-        "user_id": user_id,
-        "job_id": job_id,
+        "user_id": request.user_id,
+        "job_id": request.job_id,
+        "custom_job_title": request.job_title,
+        "custom_level": request.level,
         "status": "ongoing"
     }
 
@@ -170,7 +247,7 @@ async def get_interview_history(user_id: str):
     supabase_client = supabase.get_client()
 
     result = supabase_client.table('interview_sessions') \
-        .select('*, jobs(title, company_name)') \
+        .select('*, job_posts(title, company_name)') \
         .eq('user_id', user_id) \
         .order('created_at', desc=True) \
         .execute()

@@ -8,6 +8,7 @@ from app.models.cv import CVAnalysisResponse  # Import model đã viết
 from app.utils.logger import log_info, log_error  # Sử dụng logger tập trung
 import uuid
 import json
+import urllib.parse
 
 router = APIRouter(prefix="/cv", tags=["CV"])
 
@@ -21,16 +22,19 @@ async def upload_cv(
     log_info("CV_API", f"Bắt đầu xử lý upload cho user: {user_id}")
 
     try:
+        # Giải mã tên file tiếng Việt (tránh trường hợp bị URL-encoded như Nguye%cc%82%cc%83n%20)
+        safe_filename = urllib.parse.unquote(file.filename)
+
         # 1. Validate file dựa trên config
         content = await file.read()
-        ext = file.filename.lower().split('.')[-1]
+        ext = safe_filename.lower().split('.')[-1]
         allowed_exts = ['pdf', 'docx', 'doc', 'txt']
 
         if ext not in allowed_exts:
             raise HTTPException(400, f"Chỉ hỗ trợ các định dạng: {', '.join(allowed_exts)}")
 
         # 2. Parse CV to text (Đã bao gồm clean_text bên trong service)
-        cv_text = await cv_parser.parse(content, file.filename)
+        cv_text = await cv_parser.parse(content, safe_filename)
 
         # 3. Upload to Supabase Storage
         supabase_client = supabase.get_client()
@@ -48,8 +52,14 @@ async def upload_cv(
         prompt = CV_ANALYSIS_PROMPT.format(cv_text=cv_text[:15000])  # Nới rộng context
         analysis = await gemini.generate_json(prompt)
 
-        # 5. Generate embedding vector cho CV (Dùng để matching sau này)
-        embedding = await gemini.generate_embedding(cv_text[:5000])
+        # 5. Generate embedding vector cho CV (Dùng dữ liệu đã phân tích để tăng độ chính xác)
+        core_skills = ", ".join(analysis.get('skills', {}).get('top_skills', []))
+        tech_skills = ", ".join([skill['name'] for skill in analysis.get('skills', {}).get('technical', [])])
+        current_pos = analysis.get('personal_info', {}).get('current_position', '')
+        # Chỉ nhúng các từ khóa cốt lõi để tránh Vector Match bị nhiễu
+        cv_core_text = f"Vị trí: {current_pos}. Kỹ năng chính: {core_skills}, {tech_skills}."
+        
+        embedding = await gemini.generate_embedding(cv_core_text)
 
         # 6. Extract skills & Years of Experience
         extracted_skills = skill_extractor.extract_skills(cv_text)
@@ -57,7 +67,7 @@ async def upload_cv(
         # 7. Chuẩn bị dữ liệu lưu database
         cv_data = {
             "user_id": user_id,
-            "file_name": file.filename,
+            "file_name": safe_filename,
             "file_url": file_url,
             "is_default": True,
             "raw_text": cv_text[:2000],  # Lưu đoạn đầu để preview
@@ -90,11 +100,14 @@ async def upload_cv(
                 skill_id = new_skill.data[0]['id']
 
             # Upsert vào bảng user_skills
-            supabase_client.table('user_skills').upsert({
-                "user_id": user_id,
-                "skill_id": skill_id,
-                "proficiency_level": 3  # Mặc định là Intermediate
-            }).execute()
+            try:
+                supabase_client.table('user_skills').upsert({
+                    "user_id": user_id,
+                    "skill_id": skill_id,
+                    "proficiency_level": 3  # Mặc định là Intermediate
+                }, on_conflict="user_id, skill_id").execute()
+            except Exception as upsert_err:
+                log_error("SKILL_UPSERT", f"Bỏ qua lỗi trùng skill: {upsert_err}")
 
         # 9. Tìm Job phù hợp (Vector Search)
         matching_jobs = await find_matching_jobs(embedding)
@@ -131,7 +144,7 @@ async def find_matching_jobs(cv_embedding: list):
             'match_jobs',
             {
                 'query_embedding': cv_embedding,
-                'match_threshold': 0.7,
+                'match_threshold': 0.75,
                 'match_count': 10
             }
         ).execute()
