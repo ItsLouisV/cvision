@@ -15,11 +15,11 @@ class EmbeddingService:
                                    )
         self.local_model = None  # Lazy load
 
-    def _get_local_model(self):
-        if self.local_model is None:
-            logger.info("Loading local embedding model (all-MiniLM-L6-v2) as fallback...")
-            self.local_model = SentenceTransformer('all-MiniLM-L6-v2')
-        return self.local_model
+    # def _get_local_model(self):
+    #     if self.local_model is None:
+    #         logger.info("Loading local embedding model (all-MiniLM-L6-v2) as fallback...")
+    #         self.local_model = SentenceTransformer('all-MiniLM-L6-v2')
+    #     return self.local_model
 
     async def generate_embedding(self, text: str) -> List[float]:
         """Tạo embedding vector từ Gemini, fallback dùng model Local (miễn phí)"""
@@ -35,22 +35,24 @@ class EmbeddingService:
             )
             return result.embeddings[0].values
         except Exception as e:
-            logger.warning(f"Gemini embedding error: {e}. Falling back to local model...")
-            try:
-                model = self._get_local_model()
-                # Tạo vector và pad/trunate để ra độ dài 768 chiều (giống Gemini)
-                vector = model.encode(text).tolist()
+            # logger.warning(f"Gemini embedding error: {e}. Falling back to local model...")
+            # try:
+            #     model = self._get_local_model()
+            #     # Tạo vector và pad/trunate để ra độ dài 768 chiều (giống Gemini)
+            #     vector = model.encode(text).tolist()
                 
-                # Model local thường ra 384 chiều, ta cần pad lên 768 chiều để khớp với db
-                if len(vector) < 768:
-                    vector.extend([0.0] * (768 - len(vector)))
-                elif len(vector) > 768:
-                    vector = vector[:768]
+            #     # Model local thường ra 384 chiều, ta cần pad lên 768 chiều để khớp với db
+            #     if len(vector) < 768:
+            #         vector.extend([0.0] * (768 - len(vector)))
+            #     elif len(vector) > 768:
+            #         vector = vector[:768]
                 
-                return vector
-            except Exception as local_err:
-                logger.error(f"Local embedding fallback also failed: {local_err}")
-                raise local_err
+            #     return vector
+            # except Exception as local_err:
+            #     logger.error(f"Local embedding fallback also failed: {local_err}")
+            #     raise local_err
+            logger.error(f"Gemini embedding error: {e}")
+            raise
 
     def cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         """Tính độ tương đồng cosine giữa 2 vectors"""
