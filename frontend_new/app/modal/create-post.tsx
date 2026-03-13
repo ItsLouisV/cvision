@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { CalendarRange } from "lucide-react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import axios from "axios";
-import { useRouter } from "expo-router";
+import { useRouter, Stack, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import {
@@ -21,6 +21,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  DeviceEventEmitter,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
@@ -37,12 +38,23 @@ const JOB_TYPES = [
   { label: "Remote", value: "remote" },
 ];
 
+// Định nghĩa danh sách đơn vị lương
+const SALARY_UNITS = [
+  { label: "Giờ", value: "hour" },
+  { label: "Ngày", value: "day" },
+  { label: "Tháng", value: "month" },
+  { label: "Dự án", value: "project" },
+  { label: "Thỏa thuận", value: "negotiable" },
+  { label: "Năm", value: "year" },
+];
+
 const CreateJobPost = () => {
   const router = useRouter();
+  const navigation = useNavigation();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // Can be used to disable the button, but we won't block the screen
   const [fetchingEmployer, setFetchingEmployer] = useState(true);
   const [employerId, setEmployerId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState("");
@@ -56,6 +68,8 @@ const CreateJobPost = () => {
   const [salaryTo, setSalaryTo] = useState("");
   const [category, setCategory] = useState("");
   const [selectedJobType, setSelectedJobType] = useState("full-time"); // Mặc định
+  const [salaryUnit, setSalaryUnit] = useState("month"); // Mặc định
+  const [currency, setCurrency] = useState("VND"); // Mặc định là VND
 
   // State quản lý ngày hết hạn
   const [expiredAt, setExpiredAt] = useState(() => {
@@ -110,7 +124,11 @@ const CreateJobPost = () => {
             [
               {
                 text: "Cập nhật",
-                onPress: () => router.push("/settings/company/edit"),
+
+                onPress: () => {
+                  router.back();
+                  router.push("/settings/company/edit");
+                }
               },
             ],
           );
@@ -127,6 +145,13 @@ const CreateJobPost = () => {
     };
     initScreen();
   }, []);
+
+  // Logic tự động gợi ý đơn vị lương theo loại hình
+  useEffect(() => {
+    if (selectedJobType === "part-time") setSalaryUnit("hour");
+    else if (selectedJobType === "freelance") setSalaryUnit("project");
+    else setSalaryUnit("month");
+  }, [selectedJobType]);
 
   const handlePostJob = async () => {
     try {
@@ -169,37 +194,42 @@ const CreateJobPost = () => {
         location: location.trim(),
         salary_from: Number(salaryFrom) || 0,
         salary_to: Number(salaryTo) || 0,
+        salary_unit: salaryUnit,
+        currency: currency,
         expired_at: expiredAt.toISOString(),
         category: category,
         job_type: selectedJobType,
       };
 
       console.log("Sending Payload:", payload);
+      
+      // Emit event báo hiệu quá trình bắt đầu tải lên và đóng modal
+      DeviceEventEmitter.emit('create_post_start');
+      router.back();
 
-      const response = await axios.post(`${ENV.API_URL}/jobs/create`, payload);
+      // Gọi API ở background (không await để chặn modal)
+      axios.post(`${ENV.API_URL}/jobs/create`, payload).then((response) => {
+        if (response.data.success) {
+          Toast.show({
+            type: 'success',
+            text1: 'Thành công',
+            text2: 'Tin tuyển dụng đã được AI xử lý và đăng tải.',
+            visibilityTime: 2500,
+            autoHide: true,
+          });
+          // Emit event báo hiệu tải lên thành công để trang chủ tự load lại
+          DeviceEventEmitter.emit('create_post_success');
+        }
+      }).catch((error) => {
+        if (error.response?.status === 422) {
+          DeviceEventEmitter.emit('create_post_error', "Dữ liệu gửi lên không đúng định dạng AI yêu cầu.");
+        } else {
+          DeviceEventEmitter.emit('create_post_error', "Không thể kết nối tới máy chủ AI.");
+        }
+      });
 
-      if (response.data.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Thành công',
-          text2: 'Tin tuyển dụng đã được AI xử lý và đăng tải.',
-          visibilityTime: 1500,
-          autoHide: true,
-        });
-        router.back();
-      }
-    } catch (error: any) {
-      if (error.response?.status === 422) {
-        console.error("Validation Error Details:", error.response.data.detail);
-        Alert.alert(
-          "Lỗi dữ liệu",
-          "Dữ liệu gửi lên không đúng định dạng AI yêu cầu.",
-        );
-      } else {
-        console.error(error);
-        Alert.alert("Lỗi", "Không thể kết nối tới máy chủ AI.");
-      }
-    } finally {
+    } catch (e) {
+      console.error(e);
       setLoading(false);
     }
   };
@@ -330,9 +360,7 @@ const CreateJobPost = () => {
           </View>
 
           {/* JOB TYPE SECTION */}
-          <View
-            style={[styles.card, { backgroundColor: cardBg, marginTop: 20 }]}
-          >
+          <View style={[styles.card, { backgroundColor: cardBg, marginTop: 20 }]}>
             <Text style={styles.label}>LOẠI HÌNH CÔNG VIỆC</Text>
             <View style={styles.chipContainer}>
               {JOB_TYPES.map((type) => (
@@ -341,33 +369,10 @@ const CreateJobPost = () => {
                   onPress={() => setSelectedJobType(type.value)}
                   style={[
                     styles.chip,
-                    {
-                      backgroundColor:
-                        selectedJobType === type.value
-                          ? accentColor
-                          : isDark
-                            ? "#2C2C2E"
-                            : "#F2F2F7",
-                      borderColor:
-                        selectedJobType === type.value
-                          ? accentColor
-                          : borderColor,
-                    },
+                    { backgroundColor: selectedJobType === type.value ? accentColor : (isDark ? "#2C2C2E" : "#F2F2F7"), borderColor: borderColor }
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      {
-                        color:
-                          selectedJobType === type.value
-                            ? "#FFF"
-                            : isDark
-                              ? "#EBEBF5"
-                              : "#3A3A3C",
-                      },
-                    ]}
-                  >
+                  <Text style={[styles.chipText, { color: selectedJobType === type.value ? "#FFF" : (isDark ? "#EBEBF5" : "#3A3A3C") }]}>
                     {type.label}
                   </Text>
                 </TouchableOpacity>
@@ -379,19 +384,7 @@ const CreateJobPost = () => {
           <View
             style={[styles.card, { backgroundColor: cardBg, marginTop: 20 }]}
           >
-            <Text style={styles.label}>THÔNG TIN CHI TIẾT</Text>
-            <View style={styles.rowItem}>
-              <Ionicons name="location-outline" size={20} color={accentColor} />
-              <TextInput
-                placeholder="Địa điểm (Vd: Quận 1, TP.HCM)"
-                placeholderTextColor="#8E8E93"
-                style={[styles.flexInput, { color: theme.text }]}
-                value={location}
-                onChangeText={setLocation}
-              />
-            </View>
-            <View style={styles.divider} />
-
+            <Text style={styles.label}>MỨC LƯƠNG & ĐỊA ĐIỂM</Text>
             <View style={styles.rowItem}>
               <Ionicons name="cash-outline" size={20} color={accentColor} />
               <View style={styles.salaryContainer}>
@@ -410,13 +403,55 @@ const CreateJobPost = () => {
                   value={salaryTo}
                   onChangeText={setSalaryTo}
                 />
-                <Text style={{ color: theme.text, marginLeft: 5 }}>VNĐ</Text>
+                {/* Nút chuyển đổi tiền tệ */}
+                <TouchableOpacity 
+                  onPress={() => setCurrency(prev => prev === "VND" ? "USD" : "VND")}
+                  style={[styles.currencyPicker, { backgroundColor: isDark ? "#333" : "#eee" }]}
+                >
+                  <Text style={[styles.currencyText, { color: accentColor }]}>{currency}</Text>
+                  <Ionicons name="chevron-down" size={12} color={accentColor} />
+                </TouchableOpacity>
               </View>
             </View>
 
+            {/* UNIT SELECTION CHIPS */}
+            <View style={[styles.chipContainer, { marginTop: 12, paddingLeft: 32 }]}>
+              {SALARY_UNITS.map((unit) => (
+                <TouchableOpacity
+                  key={unit.value}
+                  onPress={() => setSalaryUnit(unit.value)}
+                  style={[
+                    styles.unitChip,
+                    { 
+                        backgroundColor: salaryUnit === unit.value ? `${accentColor}20` : "transparent",
+                        borderColor: salaryUnit === unit.value ? accentColor : borderColor 
+                    }
+                  ]}
+                >
+                  <Text style={[styles.unitChipText, { color: salaryUnit === unit.value ? accentColor : "#8E8E93" }]}>
+                    / {unit.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             <View style={styles.divider} />
 
-            {/* EXPIRED DATE PICKER */}
+            <View style={styles.rowItem}>
+              <Ionicons name="location-outline" size={20} color={accentColor} />
+              <TextInput
+                placeholder="Địa điểm làm việc (Vd: Quận 1, TP.HCM)"
+                placeholderTextColor="#8E8E93"
+                style={[styles.flexInput, { color: theme.text }]}
+                value={location}
+                onChangeText={setLocation}
+              />
+            </View>
+
+            
+          </View>
+
+          {/* EXPIRED DATE PICKER */}
+          <View style={[styles.card, { backgroundColor: cardBg, marginTop: 20 }]}>
             <View style={styles.rowItem}>
               <Ionicons name="calendar-outline" size={20} color={accentColor} />
               <View style={{ marginLeft: 12, flex: 1 }}>
@@ -497,7 +532,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 25,
     height: 56,
     borderBottomWidth: 0.5,
   },
@@ -568,8 +603,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   chipText: { fontSize: 13, fontWeight: "600" },
+  unitChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+  unitChipText: { fontSize: 12, fontWeight: "700" },
   doneBtn: { alignSelf: "center", marginTop: 5, padding: 10 },
   doneBtnText: { color: "#8e44ad", fontWeight: "bold", fontSize: 16 },
+  currencyPicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 5,
+  },
+  currencyText: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginRight: 2,
+  },
   footerNote: {
     textAlign: "center",
     color: "#8E8E93",

@@ -1,7 +1,9 @@
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
-import { Dimensions, StyleSheet, View } from "react-native";
+import { Dimensions, StyleSheet, View, Pressable } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { useNavigation } from "expo-router";
+import { useEffect } from "react";
 import Animated, {
   Extrapolate,
   interpolate,
@@ -36,6 +38,24 @@ export default function HomeScreen() {
   const feedX = useSharedValue(0);
   const searchX = useSharedValue(width);
   const hapticOnce = useSharedValue(false);
+
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    // @ts-ignore - Expo Router generic navigation không tự map ra event tabPress
+    const unsubscribe = navigation.addListener("tabPress", (e: any) => {
+      // Bắt sự kiện mỗi khi nhấn vào icon Home ở Bottom Tab
+      if (mode.value !== "feed") {
+        e.preventDefault(); // Ngăn hành vi tab switch mặc định
+        
+        feedX.value = withTiming(0, { duration: 300 });
+        searchX.value = withTiming(width, { duration: 300 });
+        mode.value = "feed";
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, feedX, searchX, mode]);
 
   /** ===== ACTIONS ===== */
   const openSaved = () => {
@@ -220,26 +240,36 @@ export default function HomeScreen() {
             onPressSearch={() => runOnJS(openSearch)()}
           />
 
-          {/* Dim Overlay - Màu đen cho Light, hoặc xám đậm cho Dark */}
+          {/* Lớp phủ chặn tương tác khi trượt panel & Bấm vào để đóng */}
           <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.feedDim,
-              feedDimStyle,
-              { backgroundColor: colorScheme === "dark" ? "#000" : "#444" },
-            ]}
-          />
-
-          {/* Blur Overlay */}
-          <Animated.View
-            pointerEvents="none"
             style={[StyleSheet.absoluteFill, feedDimStyle]}
+            pointerEvents="box-none"
           >
-            <BlurView
-              intensity={20}
-              tint={colorScheme === "dark" ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
+            <Pressable 
+              style={StyleSheet.absoluteFill} 
+              onPress={() => {
+                if (mode.value !== "feed") {
+                  feedX.value = withTiming(0, { duration: 300 });
+                  searchX.value = withTiming(width, { duration: 300 });
+                  mode.value = "feed";
+                }
+              }}
+            >
+              {/* Dim Overlay - Màu đen cho Light, hoặc xám đậm cho Dark */}
+              <View
+                style={[
+                  styles.feedDim,
+                  { backgroundColor: colorScheme === "dark" ? "#000" : "#444" },
+                ]}
+              />
+
+              {/* Blur Overlay */}
+              <BlurView
+                intensity={20}
+                tint={colorScheme === "dark" ? "dark" : "light"}
+                style={StyleSheet.absoluteFill}
+              />
+            </Pressable>
           </Animated.View>
         </Animated.View>
 

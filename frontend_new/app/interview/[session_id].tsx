@@ -50,6 +50,7 @@ const InterviewScreen = () => {
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [typingMessage, setTypingMessage] = useState("AI đang suy nghĩ...");
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
 
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [recording, setRecording] = useState(false);
@@ -236,13 +237,13 @@ const InterviewScreen = () => {
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 500,
+            toValue: 1.6,
+            duration: 600,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 500,
+            duration: 600,
             useNativeDriver: true,
           }),
         ]),
@@ -274,9 +275,14 @@ const InterviewScreen = () => {
     if (!recording) return;
     try {
       setRecording(false);
-      audioRecorder.stop();
+      await audioRecorder.stop();
+      // Chờ cho record ghi file xuống OS xong
+      
       const uri = audioRecorder.uri;
-      if (uri) sendVoiceFile(uri);
+      if (uri) {
+        setIsVoiceMode(false);
+        sendVoiceFile(uri);
+      }
     } catch (err) {
       console.error("Stop recording error:", err);
     }
@@ -288,7 +294,7 @@ const InterviewScreen = () => {
       const formData = new FormData();
       // @ts-ignore
       formData.append("file", {
-        uri: Platform.OS === "android" ? uri : uri.replace("file://", ""),
+        uri: Platform.OS === "ios" ? (!uri.startsWith("file://") ? `file://${uri}` : uri) : uri,
         type: "audio/m4a",
         name: "speech.m4a",
       });
@@ -544,60 +550,101 @@ const InterviewScreen = () => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        <View
-          style={[
-            styles.inputContainer,
-            {
-              backgroundColor: theme.background,
-              paddingBottom: Platform.OS === "ios" ? 30 : 15,
-            },
-          ]}
-        >
-          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-            <TouchableOpacity
-              onLongPress={startRecording}
-              onPressOut={stopRecording}
-              activeOpacity={0.7}
-              style={[styles.micBtn, recording && styles.micBtnActive]}
-            >
-              <Ionicons
-                name={recording ? "mic" : "mic-outline"}
-                size={22}
-                color={recording ? "#fff" : accentColor}
-              />
-            </TouchableOpacity>
-          </Animated.View>
-
-          <TextInput
-            placeholder={
-              evaluation ? "Đã kết thúc phỏng vấn" : "Trả lời phỏng vấn..."
-            }
-            editable={!evaluation}
-            selectTextOnFocus={!evaluation}
-            placeholderTextColor="#8E8E93"
+        {!isVoiceMode ? (
+          <View
             style={[
-              styles.input,
+              styles.inputContainer,
               {
-                backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7",
-                color: theme.text,
+                backgroundColor: theme.background,
+                paddingBottom: Platform.OS === "ios" ? 30 : 15,
               },
             ]}
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-          />
+          >
+            <TouchableOpacity
+              onPress={() => setIsVoiceMode(true)}
+              style={styles.micBtn}
+            >
+              <Ionicons name="mic-outline" size={22} color={accentColor} />
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={sendMessage}
-            disabled={!inputText.trim() || !!evaluation}
+            <TextInput
+              placeholder={
+                evaluation ? "Đã kết thúc phỏng vấn" : "Trả lời phỏng vấn..."
+              }
+              editable={!evaluation}
+              selectTextOnFocus={!evaluation}
+              placeholderTextColor="#8E8E93"
+              style={[
+                styles.input,
+                {
+                  backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7",
+                  color: theme.text,
+                },
+              ]}
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+            />
+
+            <TouchableOpacity
+              onPress={sendMessage}
+              disabled={!inputText.trim() || !!evaluation}
+              style={[
+                styles.sendBtn,
+                { opacity: inputText.trim() && !evaluation ? 1 : 0.5 },
+              ]}
+            >
+              <Ionicons name="arrow-up" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View
             style={[
-              styles.sendBtn,
-              { opacity: inputText.trim() && !evaluation ? 1 : 0.5 },
+              styles.voiceModeContainer,
+              {
+                backgroundColor: theme.background,
+                paddingBottom: Platform.OS === "ios" ? 30 : 15,
+              },
             ]}
           >
-            <Ionicons name="arrow-up" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity onPress={() => setIsVoiceMode(false)} style={styles.keyboardBtn}>
+              <Ionicons name="keypad-outline" size={24} color={accentColor} />
+            </TouchableOpacity>
+            
+            <View style={styles.voiceRecordArea}>
+              <View style={{ position: 'relative', width: 100, height: 100, justifyContent: 'center', alignItems: 'center', marginBottom: 20 }}>
+                {recording && (
+                  <Animated.View 
+                    style={[
+                      StyleSheet.absoluteFill, 
+                      { 
+                        backgroundColor: '#FF3B30', 
+                        borderRadius: 50, 
+                        opacity: 0.3, 
+                        transform: [{ scale: pulseAnim }] 
+                      }
+                    ]} 
+                  />
+                )}
+                <TouchableOpacity
+                  onPress={recording ? stopRecording : startRecording}
+                  activeOpacity={0.8}
+                  style={[styles.bigMicBtn, recording && styles.bigMicBtnActive]}
+                >
+                  <Ionicons
+                    name={recording ? "stop" : "mic"}
+                    size={40}
+                    color={recording ? "#fff" : accentColor}
+                  />
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={[styles.voiceInstructionText, { color: recording ? '#FF3B30' : theme.text }]}>
+                {recording ? "Đang ghi âm...\nBấm để dừng" : "Bấm vào mic để ghi âm"}
+              </Text>
+            </View>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </View>
   );
@@ -746,5 +793,51 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 4,
     paddingLeft: 4,
+  },
+  voiceModeContainer: {
+    paddingHorizontal: 12,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(128,128,128,0.3)",
+    alignItems: "center",
+    height: 250,
+  },
+  keyboardBtn: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(142,68,173,0.1)",
+    zIndex: 10,
+  },
+  voiceRecordArea: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bigMicBtn: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    borderColor: "#8e44ad",
+    borderWidth: 2,
+    backgroundColor: "transparent",
+    marginBottom: 16,
+  },
+  bigMicBtnActive: {
+    backgroundColor: "#FF3B30",
+    borderColor: "#FF3B30",
+  },
+  voiceInstructionText: {
+    fontSize: 16,
+    fontWeight: "500",
+    textAlign: "center",
+    lineHeight: 24,
   },
 });

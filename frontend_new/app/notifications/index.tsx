@@ -149,7 +149,7 @@ export default function NotificationsScreen() {
       ]}
     >
       <View style={[styles.iconContainer, { backgroundColor: item.bgColor }]}>
-        <Ionicons name={item.icon as any} size={22} color={item.iconColor} />
+        <Ionicons name={item.icon as any} size={20} color={item.iconColor} />
       </View>
       <View style={styles.textContainer}>
         <View style={styles.titleRow}>
@@ -203,8 +203,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, height: 56, borderBottomWidth: 0.5 },
   headerBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700' },
-  notificationItem: { flexDirection: 'row', padding: 16, borderBottomWidth: 0.5, borderBottomColor: 'rgba(150,150,150,0.1)' },
-  iconContainer: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  notificationItem: { flexDirection: 'row', padding: 10, borderBottomWidth: 0.5, borderBottomColor: 'rgba(150,150,150,0.1)' },
+  iconContainer: { width: 40, height: 40, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   textContainer: { flex: 1 },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   title: { fontSize: 15, flex: 1 },

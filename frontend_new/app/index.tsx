@@ -1,3 +1,6 @@
+import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
+
 import { Colors } from "@/constants/themes";
 import { supabase } from "@/lib/supabase";
 import { Session } from "@supabase/supabase-js";
@@ -13,8 +16,35 @@ export default function Index() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const router = useRouter();
+  const url = Linking.useLinkingURL();
+
   // Animation cho con logo
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (url) {
+      console.log("💎 Link nhận được:", url);
+
+      // 1. Kiểm tra xem link có chứa từ khóa recovery (mặc định của Supabase) 
+      // hoặc reset-password (do mình tự đặt) không
+      const isRecovery = url.includes('type=recovery') || url.includes('reset-password');
+
+      if (isRecovery) {
+        // 2. Dùng bộ đếm thời gian dài hơn một chút (1 giây) 
+        // để đảm bảo Expo Router đã mount xong toàn bộ các Tab/Stack
+        const timer = setTimeout(() => {
+          console.log("🚀 Đang điều hướng sang Reset Password...");
+          
+          // Thử replace thẳng vào đường dẫn file của Louis
+          // Đảm bảo file của bạn nằm đúng ở app/(auth)/reset-password.tsx
+          router.replace('/(auth)/reset-password');
+        }, 1000);
+
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [url]);
 
   useEffect(() => {
     // Chạy hiệu ứng mờ / tỏ liên tục cho Logo

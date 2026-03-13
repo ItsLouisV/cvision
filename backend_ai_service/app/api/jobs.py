@@ -24,6 +24,8 @@ class JobCreateRequest(BaseModel):
     location: Optional[str] = None
     salary_from: Optional[int] = 0
     salary_to: Optional[int] = 0
+    salary_unit: Optional[str] = 'month'
+    currency: Optional[str] = 'VND'
     expired_at: Optional[str] = None
     category: Optional[str] = None
     job_type: str

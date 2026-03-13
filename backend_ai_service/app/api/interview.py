@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
 from pydantic import BaseModel
 from app.core.supabase import supabase
 from app.services.interview_ai import interview_ai
@@ -207,6 +207,36 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
         if session_id in active_sessions:
             del active_sessions[session_id]
 
+@router.post("/stt/convert")
+async def speech_to_text(file: UploadFile = File(...)):
+    """Chuyển đổi file ghi âm giọng nói thành văn bản sử dụng Gemini"""
+    try:
+        from app.core.gemini import gemini
+        import google.generativeai as genai
+        
+        # 1. Đọc dữ liệu âm thanh
+        file_bytes = await file.read()
+        
+        # 2. Đóng gói thành định dạng Gemini hỗ trợ
+        audio_part = {'mime_type': 'audio/mp4', 'data': file_bytes} # m4a thực chất là mpeg4
+        
+        # 3. Yêu cầu AI lắng nghe và chép chính tả
+        prompt = "Listen to this audio and accurately transcribe it to text in the source language. Do not output anything else other than the transcription itself. Please ignore any background noise."
+        
+        # Gọi trực tiếp qua client của GeminiService
+        response = gemini.client.models.generate_content(
+            model=gemini.client._client.models.get_model('gemini-2.5-flash').name if hasattr(gemini.client, '_client') else "gemini-2.5-flash",
+            contents=[prompt, audio_part]
+        )
+        
+        text = response.text.strip()
+        logger.info(f"STT Transcript: {text}")
+        
+        return {"success": True, "text": text}
+        
+    except Exception as e:
+        logger.error(f"Lỗi Voice-to-Text: {e}")
+        raise HTTPException(status_code=500, detail="Không thể nhận diện giọng nói.")
 
 @router.post("/start")
 async def start_interview(request: StartInterviewRequest):
