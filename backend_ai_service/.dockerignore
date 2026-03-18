@@ -1,0 +1,13 @@
+.venv
+.env
+.idea
+.git
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.gitignore
+Dockerfile
+.dockerignore
+check_models.py
+current_reqs.txt

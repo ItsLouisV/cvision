@@ -535,8 +535,7 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
                     >
                       <Bookmark
                         size={22}
-                        color={theme.text}
-                        strokeWidth={1}
+                        color={bookmarkedPosts[post.id] ? "#FFD700" : theme.text}
                         fill={
                           bookmarkedPosts[post.id] ? "#FFD700" : "transparent"
                         }

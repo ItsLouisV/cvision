@@ -118,16 +118,68 @@ export default function NotificationsScreen() {
     fetchNotifications(0, true);
   };
 
+  // const handlePress = async (item: any) => {
+  //   if (!item.is_read) {
+  //     setNotifications(prev => 
+  //       prev.map(n => n.id === item.id ? { ...n, is_read: true } : n)
+  //     );
+  //     await supabase.from('notifications').update({ is_read: true }).eq('id', item.id);
+  //   }
+  //   if (item.data?.job_id) router.push(`/jobs/${item.data.job_id}`);
+  //   else if (item.data?.screen) router.push(item.data.screen as any);
+  // };
+
   const handlePress = async (item: any) => {
-    if (!item.is_read) {
-      setNotifications(prev => 
-        prev.map(n => n.id === item.id ? { ...n, is_read: true } : n)
-      );
-      await supabase.from('notifications').update({ is_read: true }).eq('id', item.id);
+  // 1. Đánh dấu đã đọc (Giữ nguyên logic của bạn)
+  if (!item.is_read) {
+    setNotifications(prev => 
+      prev.map(n => n.id === item.id ? { ...n, is_read: true } : n)
+    );
+    await supabase.from('notifications').update({ is_read: true }).eq('id', item.id);
+  }
+
+  // 2. XỬ LÝ DỮ LIỆU DATA (QUAN TRỌNG)
+  let rawData = item.data;
+  if (typeof rawData === 'string') {
+    try {
+      rawData = JSON.parse(rawData);
+    } catch (e) {
+      console.error("Lỗi parse JSON:", e);
+      rawData = {};
     }
-    if (item.data?.job_id) router.push(`/jobs/${item.data.job_id}`);
-    else if (item.data?.screen) router.push(item.data.screen as any);
-  };
+  }
+
+  const jobId = rawData.job_id;
+  const status = rawData.status;
+  const event = rawData.event;
+  const type = rawData.type;
+
+  // 3. LOGIC ĐIỀU HƯỚNG THÔNG MINH
+  
+  // KIỂM TRA TIN HỆ THỐNG TRƯỚC (Để chặn không cho vào trang chi tiết)
+  // Nếu status là 'closed' hoặc type là 'system' (như tin đầu tiên trong list của bạn)
+  if (jobId && (status === 'closed' || event === 'warning' || type === 'system')) {
+    console.log("Phát hiện tin hệ thống - Chuyển đến trang Edit bài:", jobId);
+    
+    router.push({
+      pathname: "/employer/expired-job", 
+      params: { id: jobId }
+    });
+    return; // Dừng lại luôn, không chạy xuống dưới
+  }
+
+  // NẾU LÀ TIN MATCH (Như tin thứ 3 trong list của bạn)
+  if (jobId) {
+    console.log("Điều hướng đến trang chi tiết công việc:", jobId);
+    router.push(`/jobs/${jobId}`);
+    return;
+  }
+
+  // CÁC TRƯỜNG HỢP KHÁC
+  if (rawData.screen) {
+    router.push(rawData.screen as any);
+  }
+};
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -158,7 +210,7 @@ export default function NotificationsScreen() {
           </Text>
           {!item.is_read && <View style={styles.unreadDot} />}
         </View>
-        <Text style={[styles.body, { color: isDark ? '#A0A0A5' : '#6C6C70' }]} numberOfLines={2}>{item.content}</Text>
+        <Text style={[styles.body, { color: isDark ? '#A0A0A5' : '#6C6C70' }]} numberOfLines={3}>{item.content}</Text>
         <Text style={styles.time}>{formatTime(item.created_at)}</Text>
       </View>
     </TouchableOpacity>

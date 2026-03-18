@@ -133,12 +133,12 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                 if user_answers_count >= 15:
                     question = {
                         "type": "summary",
-                        "content": "Thời lượng phỏng vấn đã đạt tối đa 15 câu hỏi. Rất cảm ơn bạn đã tham gia buổi phỏng vấn hôm nay."
+                        "content": "Thời lượng phỏng vấn đã đạt tối đa 15 câu hỏi, Louis AI đã ghi nhận những câu trả lời của bạn. Rất cảm ơn bạn đã tham gia buổi phỏng vấn hôm nay. Louis AI sẽ đưa ra kết quả phỏng vấn như sau."
                     }
                 else:
                     await websocket.send_json({
                         "type": "typing",
-                        "content": "AI đang suy nghĩ..."
+                        "content": "Louis AI đang suy nghĩ..."
                     })
                     # AI sinh câu hỏi tiếp theo
                     question = await interview_ai.generate_question(
@@ -211,21 +211,25 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
 async def speech_to_text(file: UploadFile = File(...)):
     """Chuyển đổi file ghi âm giọng nói thành văn bản sử dụng Gemini"""
     try:
+        from google import genai
         from app.core.gemini import gemini
-        import google.generativeai as genai
         
         # 1. Đọc dữ liệu âm thanh
         file_bytes = await file.read()
         
-        # 2. Đóng gói thành định dạng Gemini hỗ trợ
-        audio_part = {'mime_type': 'audio/mp4', 'data': file_bytes} # m4a thực chất là mpeg4
+        # 2. Xác định MIME type từ file upload (fallback audio/mp4 cho m4a)
+        mime_type = file.content_type or "audio/mp4"
+        logger.info(f"STT: Nhận file '{file.filename}', size={len(file_bytes)} bytes, mime={mime_type}")
         
-        # 3. Yêu cầu AI lắng nghe và chép chính tả
+        # 3. Đóng gói thành Part cho Gemini
+        audio_part = genai.types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
+        
+        # 4. Yêu cầu AI lắng nghe và chép chính tả
         prompt = "Listen to this audio and accurately transcribe it to text in the source language. Do not output anything else other than the transcription itself. Please ignore any background noise."
         
-        # Gọi trực tiếp qua client của GeminiService
+        # 5. Gọi Gemini — dùng trực tiếp client đã khởi tạo sẵn
         response = gemini.client.models.generate_content(
-            model=gemini.client._client.models.get_model('gemini-2.5-flash').name if hasattr(gemini.client, '_client') else "gemini-2.5-flash",
+            model="gemini-2.5-flash",
             contents=[prompt, audio_part]
         )
         
@@ -235,7 +239,7 @@ async def speech_to_text(file: UploadFile = File(...)):
         return {"success": True, "text": text}
         
     except Exception as e:
-        logger.error(f"Lỗi Voice-to-Text: {e}")
+        logger.error(f"Lỗi Voice-to-Text: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Không thể nhận diện giọng nói.")
 
 @router.post("/start")

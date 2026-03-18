@@ -9,6 +9,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -42,6 +43,8 @@ interface Job {
   location: string;
   salary_from: number;
   salary_to: number;
+  currency?: string;
+  salary_unit?: string;
   match_score?: number;
   similarity?: number;
 }
@@ -135,8 +138,38 @@ export default function CVAnalysisScreen() {
     ));
   };
 
+  const formatSalary = (from: number | null, to: number | null, currency: string = "VNĐ", unit: string = "month") => {
+  if (!from && !to) return "Thỏa thuận";
+  if (unit === "negotiable") return "Thỏa thuận";
+
+  const currencyUpper = currency?.toUpperCase() || "VND";
+  const isVND = currencyUpper === "VNĐ" || currencyUpper === "VND";
+
+  // Logic định dạng số:
+  // Nếu là VND: Chia cho 1,000,000 để lấy đơn vị "triệu"
+  // Nếu là USD/ngoại tệ khác: Dùng toLocaleString() để hiển thị dấu phẩy phân cách (VD: 120,000)
+  let fStr = from ? (isVND ? (from / 1000000).toFixed(0) : from.toLocaleString()) : "?";
+  let tStr = to ? (isVND ? (to / 1000000).toFixed(0) : to.toLocaleString()) : "?";
+  
+  // Nối chuỗi tiền tệ
+  let salaryText = `${fStr} - ${tStr} ${isVND ? "triệu" : currencyUpper}`;
+
+  // Định dạng đơn vị thời gian
+  const unitMap: any = {
+    month: "/ tháng",
+    year: "/ năm",
+    day: "/ ngày",
+    project: "/ dự án"
+  };
+
+  const unitText = unitMap[unit] || "";
+  
+  return `${salaryText} ${unitText}`.trim();
+};
+
   const JobCard = ({ item }: { item: Job }) => (
     <TouchableOpacity
+      activeOpacity={0.7}
       style={[
         styles.jobCard,
         { backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF" },
@@ -152,9 +185,7 @@ export default function CVAnalysisScreen() {
         </Text>
         <Text style={styles.jobLocation}>{item.location || "Việt Nam"}</Text>
         <Text style={[styles.jobSalary, { color: accentColor }]}>
-          {item.salary_from
-            ? `${item.salary_from.toLocaleString()} - ${item.salary_to?.toLocaleString()} VNĐ`
-            : "Thỏa thuận"}
+          {formatSalary(item.salary_from, item.salary_to, item.currency, item.salary_unit)}
         </Text>
       </View>
       <View style={styles.matchBadge}>
@@ -192,7 +223,7 @@ export default function CVAnalysisScreen() {
       ]}
     >
       <BlurView
-        intensity={isDark ? 100 : 80}
+        intensity={Platform.OS === "ios" ? (isDark ? 50 : 80) : 100}
         tint={isDark ? "dark" : "light"}
         style={styles.headerBlur}
       >

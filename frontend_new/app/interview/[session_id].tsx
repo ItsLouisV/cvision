@@ -62,7 +62,12 @@ const InterviewScreen = () => {
 
   const ws = useRef<WebSocket | null>(null);
   const flatListRef = useRef<FlatList>(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const ripple1 = useRef(new Animated.Value(0)).current;
+  const ripple2 = useRef(new Animated.Value(0)).current;
+  const ripple3 = useRef(new Animated.Value(0)).current;
+  const micGlow = useRef(new Animated.Value(1)).current;
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const recordingTimer = useRef<any>(null);
 
   const appState = useRef(AppState.currentState);
 
@@ -231,27 +236,74 @@ const InterviewScreen = () => {
     });
   }, [session_id]);
 
-  // Hiệu ứng mạch đập khi đang ghi âm
+  // Hiệu ứng ripple khi đang ghi âm
   useEffect(() => {
     if (recording) {
+      // Timer đếm giây
+      setRecordingDuration(0);
+      recordingTimer.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+
+      // Ripple staggered animation
+      const createRipple = (anim: Animated.Value, delay: number) =>
+        Animated.loop(
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.parallel([
+              Animated.timing(anim, {
+                toValue: 1,
+                duration: 1800,
+                useNativeDriver: true,
+              }),
+            ]),
+            Animated.timing(anim, {
+              toValue: 0,
+              duration: 0,
+              useNativeDriver: true,
+            }),
+          ]),
+        );
+
+      // Mic glow
       Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.6,
-            duration: 600,
+          Animated.timing(micGlow, {
+            toValue: 1.12,
+            duration: 800,
             useNativeDriver: true,
           }),
-          Animated.timing(pulseAnim, {
+          Animated.timing(micGlow, {
             toValue: 1,
-            duration: 600,
+            duration: 800,
             useNativeDriver: true,
           }),
         ]),
       ).start();
+
+      createRipple(ripple1, 0).start();
+      createRipple(ripple2, 600).start();
+      createRipple(ripple3, 1200).start();
     } else {
-      pulseAnim.setValue(1);
+      if (recordingTimer.current) {
+        clearInterval(recordingTimer.current);
+        recordingTimer.current = null;
+      }
+      ripple1.setValue(0);
+      ripple2.setValue(0);
+      ripple3.setValue(0);
+      micGlow.setValue(1);
     }
+    return () => {
+      if (recordingTimer.current) clearInterval(recordingTimer.current);
+    };
   }, [recording]);
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   async function startRecording() {
     try {
@@ -264,6 +316,8 @@ const InterviewScreen = () => {
         allowsRecording: true,
         playsInSilentMode: true,
       });
+      // Chuẩn bị file ghi âm trước khi bắt đầu (bắt buộc để tạo file trên disk)
+      await audioRecorder.prepareToRecordAsync();
       audioRecorder.record();
       setRecording(true);
     } catch (err) {
@@ -276,8 +330,7 @@ const InterviewScreen = () => {
     try {
       setRecording(false);
       await audioRecorder.stop();
-      // Chờ cho record ghi file xuống OS xong
-      
+
       const uri = audioRecorder.uri;
       if (uri) {
         setIsVoiceMode(false);
@@ -299,10 +352,33 @@ const InterviewScreen = () => {
         name: "speech.m4a",
       });
 
-      const res = await axios.post(`${ENV.API_URL}/stt/convert`, formData, {
+      const res = await axios.post(`${ENV.API_URL}/interview/stt/convert`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      if (res.data.text) setInputText(res.data.text);
+
+      // Tự động gửi tin nhắn qua WebSocket nếu nhận diện được text
+      const transcribedText = res.data?.text?.trim();
+      if (transcribedText && ws.current?.readyState === WebSocket.OPEN && userId) {
+        // Hiển thị tin nhắn user ngay trên UI
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            sender: "user",
+            content: transcribedText,
+            timestamp: new Date(),
+          },
+        ]);
+
+        // Gửi qua WebSocket
+        ws.current.send(
+          JSON.stringify({ type: "answer", content: transcribedText, user_id: userId })
+        );
+        setIsTyping(true);
+      } else if (transcribedText) {
+        // Fallback: nếu WS chưa sẵn sàng, đặt vào input để user gửi tay
+        setInputText(transcribedText);
+      }
     } catch (e) {
       Alert.alert(
         "Lỗi",
@@ -561,8 +637,9 @@ const InterviewScreen = () => {
             ]}
           >
             <TouchableOpacity
-              onPress={() => setIsVoiceMode(true)}
-              style={styles.micBtn}
+              onPress={() => !evaluation && setIsVoiceMode(true)}
+              disabled={!!evaluation}
+              style={[styles.micBtn, !!evaluation && { opacity: 0.4 }]}
             >
               <Ionicons name="mic-outline" size={22} color={accentColor} />
             </TouchableOpacity>
@@ -612,35 +689,59 @@ const InterviewScreen = () => {
             </TouchableOpacity>
             
             <View style={styles.voiceRecordArea}>
-              <View style={{ position: 'relative', width: 100, height: 100, justifyContent: 'center', alignItems: 'center', marginBottom: 20 }}>
-                {recording && (
-                  <Animated.View 
+              <View style={styles.rippleContainer}>
+                {/* Ripple rings */}
+                {recording && [ripple1, ripple2, ripple3].map((anim, i) => (
+                  <Animated.View
+                    key={i}
                     style={[
-                      StyleSheet.absoluteFill, 
-                      { 
-                        backgroundColor: '#FF3B30', 
-                        borderRadius: 50, 
-                        opacity: 0.3, 
-                        transform: [{ scale: pulseAnim }] 
-                      }
-                    ]} 
+                      styles.rippleRing,
+                      {
+                        opacity: anim.interpolate({
+                          inputRange: [0, 0.3, 1],
+                          outputRange: [0.6, 0.3, 0],
+                        }),
+                        transform: [
+                          {
+                            scale: anim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [1, 2.8],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
                   />
-                )}
-                <TouchableOpacity
-                  onPress={recording ? stopRecording : startRecording}
-                  activeOpacity={0.8}
-                  style={[styles.bigMicBtn, recording && styles.bigMicBtnActive]}
-                >
-                  <Ionicons
-                    name={recording ? "stop" : "mic"}
-                    size={40}
-                    color={recording ? "#fff" : accentColor}
-                  />
-                </TouchableOpacity>
+                ))}
+
+                {/* Mic button */}
+                <Animated.View style={recording ? { transform: [{ scale: micGlow }] } : undefined}>
+                  <TouchableOpacity
+                    onPress={recording ? stopRecording : startRecording}
+                    activeOpacity={0.8}
+                    style={[styles.bigMicBtn, recording && styles.bigMicBtnActive]}
+                  >
+                    <Ionicons
+                      name={recording ? "stop" : "mic"}
+                      size={36}
+                      color={recording ? "#fff" : accentColor}
+                    />
+                  </TouchableOpacity>
+                </Animated.View>
               </View>
-              
+
+              {recording && (
+                <View style={styles.timerRow}>
+                  <View style={styles.liveIndicator}>
+                    <View style={styles.liveDot} />
+                    <Text style={styles.liveText}>REC</Text>
+                  </View>
+                  <Text style={styles.timerText}>{formatDuration(recordingDuration)}</Text>
+                </View>
+              )}
+
               <Text style={[styles.voiceInstructionText, { color: recording ? '#FF3B30' : theme.text }]}>
-                {recording ? "Đang ghi âm...\nBấm để dừng" : "Bấm vào mic để ghi âm"}
+                {recording ? "Bấm để dừng ghi âm" : "Bấm vào mic để ghi âm"}
               </Text>
             </View>
           </View>
@@ -800,7 +901,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "rgba(128,128,128,0.3)",
     alignItems: "center",
-    height: 250,
+    height: 280,
   },
   keyboardBtn: {
     position: 'absolute',
@@ -819,6 +920,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  rippleContainer: {
+    width: 160,
+    height: 160,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  rippleRing: {
+    position: "absolute",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: "#FF3B30",
+  },
   bigMicBtn: {
     width: 80,
     height: 80,
@@ -826,18 +942,57 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderColor: "#8e44ad",
-    borderWidth: 2,
+    borderWidth: 2.5,
     backgroundColor: "transparent",
-    marginBottom: 16,
   },
   bigMicBtnActive: {
     backgroundColor: "#FF3B30",
     borderColor: "#FF3B30",
+    shadowColor: "#FF3B30",
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 10,
+  },
+  timerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    gap: 10,
+  },
+  liveIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 59, 48, 0.15)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 5,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FF3B30",
+  },
+  liveText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#FF3B30",
+    letterSpacing: 1,
+  },
+  timerText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FF3B30",
+    fontVariant: ["tabular-nums"],
+    letterSpacing: 2,
   },
   voiceInstructionText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "500",
     textAlign: "center",
-    lineHeight: 24,
+    lineHeight: 22,
+    opacity: 0.7,
   },
 });

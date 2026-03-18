@@ -1,19 +1,43 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { supabase } from '@/lib/supabase'; // Đảm bảo đúng đường dẫn file cấu hình
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
+import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hasCachedSession, setHasCachedSession] = useState(false);
   
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const accentColor = '#8e44ad';
+
+  const { isAvailable, isEnabled, authenticate, getBiometricLabel, getBiometricIcon } = useBiometricAuth();
+
+  // Kiểm tra xem có session cũ đã lưu không
+  useEffect(() => {
+    const checkCachedSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setHasCachedSession(!!session);
+    };
+    checkCachedSession();
+  }, []);
+
+  const showBiometricLogin = isAvailable;
+
+  const handleBiometricLogin = async () => {
+    const success = await authenticate();
+    if (success) {
+      router.replace('/(tabs)/home');
+    } else {
+      Alert.alert('Xác thực thất bại', 'Vui lòng thử lại hoặc đăng nhập bằng mật khẩu.');
+    }
+  };
 
   const onLogin = async () => {
     if (!email || !password) {
@@ -95,6 +119,20 @@ export default function LoginScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Nút đăng nhập sinh trắc học */}
+      {showBiometricLogin && (
+        <TouchableOpacity 
+          style={[styles.biometricBtn, { borderColor: accentColor }]}
+          onPress={handleBiometricLogin}
+          activeOpacity={0.7}
+        >
+          <Ionicons name={getBiometricIcon() as any} size={24} color={accentColor} />
+          <Text style={[styles.biometricText, { color: accentColor }]}>
+            Đăng nhập bằng {getBiometricLabel()}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       <TouchableOpacity onPress={() => router.push('/(auth)/register')} style={styles.footerLink}>
         <Text style={styles.linkText}>
           Chưa có tài khoản? <Text style={{ color: accentColor, fontWeight: '700' }}>Đăng ký ngay</Text>
@@ -138,4 +176,18 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   footerLink: { marginTop: 32, alignItems: 'center' },
   linkText: { color: '#666', fontSize: 15 },
+  biometricBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    gap: 10,
+    marginTop: 24,
+  },
+  biometricText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });

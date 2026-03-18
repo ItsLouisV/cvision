@@ -9,6 +9,7 @@ import { useRouter, Stack } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { Colors } from '@/constants/themes';
 import { supabase } from '@/lib/supabase';
+import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function SettingsScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState(true);
-  const [isFaceID, setIsFaceID] = useState(true);
+  const { isAvailable, isEnabled, toggleBiometric, getBiometricLabel, getBiometricIcon, isLoading: biometricLoading } = useBiometricAuth();
 
   useFocusEffect(
     useCallback(() => {
@@ -150,10 +151,17 @@ export default function SettingsScreen() {
           rightElement={<Switch value={notifications} onValueChange={setNotifications} />}
         />
         <Item 
-          icon="scan" 
-          label="Xác thực FaceID/Vân tay" 
+          icon={getBiometricIcon()} 
+          label={`Xác thực ${getBiometricLabel()}`}
           color="#000" 
-          rightElement={<Switch value={isFaceID} onValueChange={setIsFaceID} />}
+          subLabel={!isAvailable ? 'Thiết bị không hỗ trợ' : undefined}
+          rightElement={
+            <Switch 
+              value={isEnabled} 
+              onValueChange={() => { toggleBiometric(); }}
+              disabled={!isAvailable || biometricLoading}
+            />
+          }
         />
         <Item icon="lock-closed" label="Đổi mật khẩu" color="#8E8E93" />
         <Item icon="eye-off" label="Chế độ riêng tư" color="#5AC8FA" subLabel="Ẩn trạng thái với nhà tuyển dụng" />
