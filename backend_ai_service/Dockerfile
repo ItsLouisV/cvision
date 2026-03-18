@@ -20,4 +20,5 @@ COPY . .
 EXPOSE 8000
 
 # Chạy uvicorn — production mode (không reload)
-CMD ["sh", "-c", "gunicorn app.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8000} --workers 2"]
+# Sửa dòng cuối Dockerfile thành:
+CMD ["gunicorn", "app.main:app", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "1", "--timeout", "120"]
