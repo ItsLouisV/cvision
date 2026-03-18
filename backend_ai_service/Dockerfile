@@ -20,4 +20,4 @@ COPY . .
 EXPOSE 8000
 
 # Chạy uvicorn — production mode (không reload)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--ws-ping-interval", "0", "--ws-ping-timeout", "0"]
+CMD ["sh", "-c", "gunicorn app.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8000} --workers 2"]
