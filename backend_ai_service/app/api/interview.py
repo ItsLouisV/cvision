@@ -233,14 +233,41 @@ async def speech_to_text(file: UploadFile = File(...)):
             contents=[prompt, audio_part]
         )
         
-        text = response.text.strip()
-        logger.info(f"STT Transcript: {text}")
+        text = ""
+        try:
+            # Kiểm tra xem response có chứa text hợp lệ không
+            if hasattr(response, 'text') and response.text:
+                text = response.text.strip()
+            else:
+                # Nếu không có text, log lại để theo dõi nhưng không raise lỗi
+                logger.warning("Gemini returned empty transcription (silent audio or safety block).")
+        except Exception as inner_e:
+            logger.error(f"Error accessing response.text: {inner_e}")
+            text = ""
+
+        # 6. Kiểm tra response có chứa lỗi từ Gemini không
+        if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
+            feedback = response.prompt_feedback
+            if feedback.block_reason:
+                logger.warning(f"Gemini blocked transcription due to: {feedback.block_reason}")
+                # Trả về empty text nhưng báo lỗi rõ ràng
+                return {
+                    "success": False, 
+                    "text": "",
+                    "message": f"Không thể xử lý: {feedback.block_reason}"
+                }
+
+        logger.info(f"STT Transcript: '{text}'")
         
-        return {"success": True, "text": text}
+        return {
+            "success": True, 
+            "text": text,
+            "message": "Nhận diện thành công" if text else "Không nghe rõ giọng nói"
+        }
         
     except Exception as e:
         logger.error(f"Lỗi Voice-to-Text: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Không thể nhận diện giọng nói.")
+        return {"success": False, "text": "", "detail": str(e)}
 
 @router.post("/start")
 async def start_interview(request: StartInterviewRequest):

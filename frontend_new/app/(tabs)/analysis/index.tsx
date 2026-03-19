@@ -290,7 +290,8 @@ export default function CVAnalysisScreen() {
               <View>
                 <Text style={styles.scoreLabel}>Độ mạnh CV</Text>
                 <Text style={styles.scoreValue}>
-                  {analysis.overall_score || 0}/100
+                  {analysis.overall_score || 0}
+                  <Text style={styles.scoreMax}>/100</Text>
                 </Text>
               </View>
               <Ionicons name="rocket" size={50} color="rgba(255,255,255,0.4)" />
@@ -497,6 +498,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   scoreValue: { color: "#fff", fontSize: 42, fontWeight: "900" },
+  scoreMax: { color: "rgba(255,255,255,0.6)", fontSize: 26, fontWeight: "800", marginLeft: 14 },
 
   matchingSection: { marginBottom: 30 },
   sectionHeaderRow: {

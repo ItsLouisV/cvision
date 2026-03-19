@@ -16,9 +16,9 @@ import {
   TouchableOpacity,
   useColorScheme,
   View,
-  SafeAreaView,
   StatusBar,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
 
