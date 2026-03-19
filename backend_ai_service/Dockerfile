@@ -25,4 +25,5 @@ EXPOSE 8000
 
 # Chạy app bằng gunicorn + uvicorn worker (phù hợp production)
 ENV PORT=8000
-CMD ["gunicorn", "app.main:app", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "1", "--timeout", "120"]
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${PORT:-8000}", "--ws-ping-interval", "0", "--ws-ping-timeout", "0"]
