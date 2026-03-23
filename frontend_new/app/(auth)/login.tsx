@@ -1,193 +1,217 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Alert, 
+  ActivityIndicator, 
+  Keyboard, 
+  TouchableWithoutFeedback,
+  useColorScheme
+} from 'react-native';
 import { router } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from 'react-native';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [hasCachedSession, setHasCachedSession] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
   
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const accentColor = '#8e44ad';
 
-  const { isAvailable, isEnabled, authenticate, getBiometricLabel, getBiometricIcon } = useBiometricAuth();
-
-  // Kiểm tra xem có session cũ đã lưu không
-  useEffect(() => {
-    const checkCachedSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setHasCachedSession(!!session);
-    };
-    checkCachedSession();
-  }, []);
-
-  const showBiometricLogin = isAvailable;
-
-  const handleBiometricLogin = async () => {
-    const success = await authenticate();
-    if (success) {
-      router.replace('/(tabs)/home');
-    } else {
-      Alert.alert('Xác thực thất bại', 'Vui lòng thử lại hoặc đăng nhập bằng mật khẩu.');
-    }
+  const theme = {
+    bg: isDark ? '#000' : '#F8F9FA',
+    text: isDark ? '#FFFFFF' : '#1C1C1E',
+    subtext: isDark ? '#8E8E93' : '#666666',
+    inputBg: isDark ? '#111' : '#F2F2F7',
   };
+
+  const { isAvailable, authenticate, getBiometricLabel, getBiometricIcon } = useBiometricAuth();
 
   const onLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Thông báo', 'Vui lòng nhập đầy đủ email và mật khẩu');
+      Alert.alert('Thông báo', 'Vui lòng nhập đầy đủ thông tin');
       return;
     }
-
     setLoading(true);
-    
-    // Gọi hàm đăng nhập của Supabase
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password,
-    });
-
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      Alert.alert('Lỗi đăng nhập', error.message);
+      Alert.alert('Lỗi', error.message);
       setLoading(false);
     } else {
-      // Đăng nhập thành công, chuyển hướng vào App chính
-      router.replace('/(tabs)/home');
+      router.replace('../(tabs)/home');
       setLoading(false);
     }
   };
 
+  const onForgotPassword = () => {
+    router.push('../(auth)/forgot-password');
+  };
+
   return (
-    <KeyboardAvoidingView style={[styles.container, { backgroundColor: isDark ? '#000' : '#F8F9FA' }]}>
-      <View style={styles.header}>
-        <View style={[styles.logoCircle, { backgroundColor: accentColor }]}>
-          <Ionicons name="sparkles" size={32} color="#fff" />
+    // 🎯 CHẠM NGOÀI ĐỂ TẮT BÀN PHÍM
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+        <View style={styles.inner}>
+          
+          {/* LOGO & CHÀO MỪNG */}
+          <View style={styles.header}>
+            <View style={[styles.logoCircle, { backgroundColor: accentColor }]}>
+              <Ionicons name="sparkles" size={36} color="#fff" />
+            </View>
+            <Text style={[styles.title, { color: theme.text }]}>Chào Louis,</Text>
+            <Text style={styles.subtitle}>Đăng nhập để khám phá cơ hội mới cùng AI</Text>
+          </View>
+
+          {/* Ô NHẬP LIỆU */}
+          <View style={styles.form}>
+            <View style={[
+              styles.inputWrapper, 
+              { backgroundColor: theme.inputBg },
+              focusedInput === 'email' && { borderColor: accentColor, borderWidth: 1.5 }
+            ]}>
+              <Ionicons name="mail-outline" size={20} color={focusedInput === 'email' ? accentColor : "#999"} />
+              <TextInput
+                placeholder="Email của bạn"
+                placeholderTextColor="#999"
+                style={[styles.input, { color: theme.text }]}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                onFocus={() => setFocusedInput('email')}
+                onBlur={() => setFocusedInput(null)}
+              />
+            </View>
+
+            <View style={[
+              styles.inputWrapper, 
+              { backgroundColor: theme.inputBg },
+              focusedInput === 'password' && { borderColor: accentColor, borderWidth: 1.5 }
+            ]}>
+              <Ionicons name="lock-closed-outline" size={20} color={focusedInput === 'password' ? accentColor : "#999"} />
+              <TextInput
+                placeholder="Mật khẩu"
+                placeholderTextColor="#999"
+                style={[styles.input, { color: theme.text }]}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!isPasswordVisible}
+                onFocus={() => setFocusedInput('password')}
+                onBlur={() => setFocusedInput(null)}
+              />
+              <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
+                <Ionicons 
+                  name={isPasswordVisible ? "eye-off-outline" : "eye-outline"} 
+                  size={20} 
+                  color="#999" 
+                />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.forgotBtn} onPress={onForgotPassword}>
+              <Text style={{ color: accentColor, fontWeight: '600' }}>Quên mật khẩu?</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.loginButton, { backgroundColor: accentColor }]} 
+              onPress={onLogin}
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Đăng nhập</Text>}
+            </TouchableOpacity>
+          </View>
+
+          {/* SINH TRẮC HỌC & ĐĂNG KÝ */}
+          <View style={styles.footer}>
+            {/* {isAvailable && (
+              <TouchableOpacity 
+                style={[styles.biometricBtn, { borderColor: accentColor }]}
+                // onPress={authenticate}
+              >
+                <Ionicons name={getBiometricIcon() as any} size={24} color={accentColor} />
+                <Text style={[styles.biometricText, { color: accentColor }]}>
+                  Dùng {getBiometricLabel()}
+                </Text>
+              </TouchableOpacity>
+            )} */}
+
+            <TouchableOpacity onPress={() => router.push('/(auth)/register')} style={styles.registerLink}>
+              <Text style={[styles.linkText, { color: theme.subtext }]}>
+                Chưa có tài khoản à? <Text style={{ color: accentColor, fontWeight: '800' }}>Đăng ký ngay</Text> đi nè!
+              </Text>
+            </TouchableOpacity>
+          </View>
+
         </View>
-        <Text style={[styles.title, { color: isDark ? '#fff' : '#000' }]}>Chào mừng trở lại</Text>
-        <Text style={styles.subtitle}>Đăng nhập để tiếp tục hành trình sự nghiệp</Text>
-      </View>
-
-      <View style={styles.form}>
-        <View style={[styles.inputContainer, { backgroundColor: isDark ? '#111' : '#fff' }]}>
-          <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-          <TextInput
-            placeholder="Email"
-            placeholderTextColor="#666"
-            style={[styles.input, { color: isDark ? '#fff' : '#000' }]}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-        </View>
-
-        <View style={[styles.inputContainer, { backgroundColor: isDark ? '#111' : '#fff' }]}>
-          <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-          <TextInput
-            placeholder="Mật khẩu"
-            placeholderTextColor="#666"
-            style={[styles.input, { color: isDark ? '#fff' : '#000' }]}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-        </View>
-
-        <TouchableOpacity 
-          style={styles.forgotBtn}
-          onPress={() => router.push('/(auth)/forgot-password')}
-        >
-          <Text style={{ color: accentColor, textAlign: 'right', fontWeight: '600' }}>Quên mật khẩu?</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.button, { backgroundColor: accentColor }]} 
-          onPress={onLogin}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Đăng nhập</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Nút đăng nhập sinh trắc học */}
-      {showBiometricLogin && (
-        <TouchableOpacity 
-          style={[styles.biometricBtn, { borderColor: accentColor }]}
-          onPress={handleBiometricLogin}
-          activeOpacity={0.7}
-        >
-          <Ionicons name={getBiometricIcon() as any} size={24} color={accentColor} />
-          <Text style={[styles.biometricText, { color: accentColor }]}>
-            Đăng nhập bằng {getBiometricLabel()}
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      <TouchableOpacity onPress={() => router.push('/(auth)/register')} style={styles.footerLink}>
-        <Text style={styles.linkText}>
-          Chưa có tài khoản? <Text style={{ color: accentColor, fontWeight: '700' }}>Đăng ký ngay</Text>
-        </Text>
-      </TouchableOpacity>
-    </KeyboardAvoidingView>
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center' },
-  header: { alignItems: 'center', marginBottom: 40 },
-  logoCircle: { width: 64, height: 64, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  title: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
-  subtitle: { fontSize: 15, color: '#666', marginTop: 8, textAlign: 'center' },
+  container: { flex: 1 },
+  inner: { flex: 1, padding: 24, justifyContent: 'center' },
+  header: { alignItems: 'center', marginBottom: 50 },
+  logoCircle: { 
+    width: 76, 
+    height: 76, 
+    borderRadius: 22, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginBottom: 20,
+    shadowColor: '#8e44ad',
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5
+  },
+  title: { fontSize: 32, fontWeight: '900', letterSpacing: -0.5 },
+  subtitle: { fontSize: 15, color: '#8E8E93', marginTop: 10, textAlign: 'center', paddingHorizontal: 30 },
   form: { width: '100%' },
-  inputContainer: {
+  inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 56,
+    height: 58,
     borderRadius: 16,
     paddingHorizontal: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(142, 68, 173, 0.1)',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
-  inputIcon: { marginRight: 12 },
-  input: { flex: 1, height: '100%', fontSize: 16 },
-  forgotBtn: { alignSelf: 'flex-end', marginBottom: 24 },
-  button: {
-    height: 56,
+  input: { flex: 1, height: '100%', fontSize: 16, marginLeft: 12 },
+  forgotBtn: { alignSelf: 'flex-end', marginBottom: 25 },
+  loginButton: {
+    height: 58,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#8e44ad',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
     elevation: 4,
   },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  footerLink: { marginTop: 32, alignItems: 'center' },
-  linkText: { color: '#666', fontSize: 15 },
+  buttonText: { color: '#fff', fontWeight: '800', fontSize: 17 },
+  footer: { marginTop: 40, alignItems: 'center' },
   biometricBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 56,
+    paddingVertical: 14,
+    paddingHorizontal: 30,
     borderRadius: 16,
     borderWidth: 1.5,
-    gap: 10,
-    marginTop: 24,
+    gap: 12,
+    marginBottom: 30
   },
-  biometricText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  biometricText: { fontSize: 16, fontWeight: '700' },
+  registerLink: { padding: 10 },
+  linkText: { fontSize: 15 },
 });

@@ -229,7 +229,7 @@ export default function Index() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  return <Redirect href="/(tabs)/home" />;
+  return <Redirect href="../(drawer)/(tabs)/home" />;
 }
 
 const styles = StyleSheet.create({

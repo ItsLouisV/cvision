@@ -9,6 +9,7 @@ import axios from "axios";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
+import CurrencyInput from 'react-native-currency-input';
 import {
   ActivityIndicator,
   Alert,
@@ -262,20 +263,30 @@ const EditJobScreen = () => {
             <View style={styles.rowItem}>
               <Ionicons name="cash-outline" size={20} color={accentColor} />
               <View style={styles.salaryContainer}>
-                <TextInput
+                <CurrencyInput
+                  value={Number(salaryFrom)}
+                  onChangeValue={(val) => setSalaryFrom(val?.toString() || "0")}
                   placeholder="Từ"
+                  prefix={currency === "USD" ? "$" : ""}
+                  suffix={currency === "VND" ? "đ" : ""}
+                  delimiter={currency === "USD" ? "," : "."}
+                  separator={currency === "USD" ? "." : ","}
+                  precision={currency === "USD" ? 1 : 0}
                   keyboardType="numeric"
                   style={[styles.salaryInput, { color: theme.text }]}
-                  value={salaryFrom}
-                  onChangeText={setSalaryFrom}
                 />
                 <Text style={{ color: "#8E8E93", marginHorizontal: 8 }}>-</Text>
-                <TextInput
+                <CurrencyInput
                   placeholder="Đến"
                   keyboardType="numeric"
                   style={[styles.salaryInput, { color: theme.text }]}
-                  value={salaryTo}
-                  onChangeText={setSalaryTo}
+                  value={Number(salaryTo)}
+                  onChangeValue={(val) => setSalaryTo(val?.toString() || "0")}
+                  prefix={currency === "USD" ? "$" : ""}
+                  suffix={currency === "VND" ? "đ" : ""}
+                  delimiter={currency === "USD" ? "," : "."}
+                  separator={currency === "USD" ? "." : ","}
+                  precision={currency === "USD" ? 1 : 0}
                 />
                 <TouchableOpacity 
                   onPress={() => setCurrency(prev => prev === "VND" ? "USD" : "VND")}

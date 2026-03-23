@@ -12,9 +12,13 @@ import {
   TextAlignStart,
   Verified,
 } from "lucide-react-native";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Animated,
+  DeviceEventEmitter,
   Dimensions,
+  Easing,
   Image,
   RefreshControl,
   ScrollView,
@@ -22,11 +26,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  DeviceEventEmitter,
-  ActivityIndicator,
-  Animated,
-  Easing,
+  View,Platform, 
 } from "react-native";
 
 import * as Haptics from "expo-haptics";
@@ -34,10 +34,10 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
+import FeedSkeleton from "@/app/skeletons/FeedSkeleton";
 import { Colors } from "@/constants/themes";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { supabase } from "@/lib/supabase";
-import FeedSkeleton from "./skeleton/FeedSkeleton";
 
 const { width } = Dimensions.get("window");
 
@@ -127,9 +127,15 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
           content: job.description,
           require: job.required_experience,
           time: formatTime(job.created_at),
-          salary: formatSalary(job.salary_from, job.salary_to, job.currency, job.salary_unit),
+          salary: formatSalary(
+            job.salary_from,
+            job.salary_to,
+            job.currency,
+            job.salary_unit,
+          ),
           location: job.location || "Toàn quốc",
-          tech_stack: [job.job_type, job.category].filter(Boolean),
+          type: job.job_type,
+          category: job.category,
           is_verified: job.employers?.is_verified || false,
           likes: Math.floor(Math.random() * 5) + 10, // Mock số liệu vì chưa có bảng tương tác
           replies: Math.floor(Math.random() * 15),
@@ -150,25 +156,68 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
   };
 
   // 2. HELPER FUNCTIONS
-  const formatSalary = (from: number | null, to: number | null, currency: string = "VNĐ", unit: string = "month") => {
+  const formatSalary = (
+    from: number | null,
+    to: number | null,
+    currency: string = "VNĐ",
+    unit: string = "month",
+  ) => {
     if (!from && !to) return "Thỏa thuận";
     if (unit === "negotiable") return "Thỏa thuận";
 
-    const isVND = currency.toUpperCase() === "VNĐ" || currency.toUpperCase() === "VND";
+    const isVND =
+      currency.toUpperCase() === "VNĐ" || currency.toUpperCase() === "VND";
+    const isUSD = currency.toUpperCase() === "USD";
+    const isHourly = unit.toLowerCase() === "hour";
 
-    // Format số
-    let fStr = from ? (isVND ? (from / 1000000).toFixed(0) : from.toLocaleString()) : "?";
-    let tStr = to ? (isVND ? (to / 1000000).toFixed(0) : to.toLocaleString()) : "?";
-    
+    let fStr = "";
+    let tStr = "";
+
+    if (isVND) {
+      if (isHourly) {
+        // Tiền lương theo giờ (VND): Giữ nguyên số gốc, thêm dấu ngăn cách phần nghìn.
+        fStr = from ? from.toLocaleString() : "?";
+        tStr = to ? to.toLocaleString() : "?";
+      } else {
+        // Tiền lương theo tháng/năm (VND): Chia cho 1,000,000 để lấy đơn vị "triệu"
+        fStr = from ? (from / 1000000).toFixed(0) : "?";
+        tStr = to ? (to / 1000000).toFixed(0) : "?";
+      }
+    } else {
+      // Ngoại tệ: Luôn giữ nguyên số gốc và thêm dấu phẩy ngăn cách phần nghìn
+      fStr = from
+        ? from.toLocaleString("en-US", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 1,
+          })
+        : "?";
+      tStr = to
+        ? to.toLocaleString("en-US", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 1,
+          })
+        : "?";
+    }
+
     // Nối chuỗi tiền tệ (Nếu là VND thì mượn chữ 'triệu', USD thì giữ nguyên số gốc)
-    let salaryText = `${fStr} - ${tStr} ${isVND ? "triệu" : currency}`;
+    let salaryText = "";
+    if (isVND) {
+      salaryText = isHourly
+        ? `${fStr} - ${tStr} VNĐ`
+        : `${fStr} - ${tStr} triệu`;
+    } else if (isUSD) {
+      salaryText = `$${fStr} - $${tStr}`;
+    } else {
+      salaryText = `${fStr} - ${tStr} ${currency}`;
+    }
 
     // Nối Đơn vị tính
     const unitMap: any = {
+      hour: "/ giờ",
       month: "/ tháng",
       year: "/ năm",
       day: "/ ngày",
-      project: "/ dự án"
+      project: "/ dự án",
     };
 
     const unitText = unitMap[unit] || "";
@@ -209,7 +258,7 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
 
   // Lắng nghe sự kiện đăng bài từ create-post.tsx
   useEffect(() => {
-    const subStart = DeviceEventEmitter.addListener('create_post_start', () => {
+    const subStart = DeviceEventEmitter.addListener("create_post_start", () => {
       setIsUploading(true);
       progressAnim.setValue(0);
       Animated.timing(progressAnim, {
@@ -219,27 +268,33 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
         useNativeDriver: false,
       }).start();
     });
-    const subSuccess = DeviceEventEmitter.addListener('create_post_success', () => {
-      Animated.timing(progressAnim, {
-        toValue: 1,
-        duration: 500,
-        easing: Easing.linear,
-        useNativeDriver: false,
-      }).start(() => {
-        setTimeout(() => {
-          setIsUploading(false);
-          onRefresh(); // Tải lại danh sách khi tạo xong
-        }, 400); // Lưu luyến 1 tí để User nhìn thấy thanh ProgressBar full 100%
-      });
-    });
-    const subError = DeviceEventEmitter.addListener('create_post_error', (errorMsg) => {
-      setIsUploading(false);
-      Toast.show({
-        type: 'error',
-        text1: 'Bài viết không thể tải lên',
-        text2: errorMsg || 'Có lỗi xảy ra',
-      });
-    });
+    const subSuccess = DeviceEventEmitter.addListener(
+      "create_post_success",
+      () => {
+        Animated.timing(progressAnim, {
+          toValue: 1,
+          duration: 500,
+          easing: Easing.linear,
+          useNativeDriver: false,
+        }).start(() => {
+          setTimeout(() => {
+            setIsUploading(false);
+            onRefresh(); // Tải lại danh sách khi tạo xong
+          }, 400); // Lưu luyến 1 tí để User nhìn thấy thanh ProgressBar full 100%
+        });
+      },
+    );
+    const subError = DeviceEventEmitter.addListener(
+      "create_post_error",
+      (errorMsg) => {
+        setIsUploading(false);
+        Toast.show({
+          type: "error",
+          text1: "Bài viết không thể tải lên",
+          text2: errorMsg || "Có lỗi xảy ra",
+        });
+      },
+    );
 
     return () => {
       subStart.remove();
@@ -278,17 +333,17 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
 
   const onPressNotification = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("../notifications");
+    router.push("/notifications");
   };
 
   const handleMenuPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (onPressMenu) onPressMenu();
   };
 
   const handleSearchPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (onPressSearch) onPressSearch();
+    router.push("/search/SearchView");
   };
 
   // 3. UI RENDER
@@ -334,20 +389,42 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
 
       {/* UPLOADING INDICATOR BANNER WITH PROGRESS */}
       {isUploading && (
-        <View style={{ backgroundColor: isDark ? '#1C1C1E' : '#ebedf0' }}>
-          <View style={[styles.uploadingBanner, { borderBottomWidth: 0, paddingVertical: 12 }]}>
-            <ActivityIndicator size="small" color="#8e44ad" style={{ marginRight: 10 }} />
-            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '600' }}>
+        <View style={{ backgroundColor: isDark ? "#1C1C1E" : "#ebedf0" }}>
+          <View
+            style={[
+              styles.uploadingBanner,
+              { borderBottomWidth: 0, paddingVertical: 12 },
+            ]}
+          >
+            <ActivityIndicator
+              size="small"
+              color="#8e44ad"
+              style={{ marginRight: 10 }}
+            />
+            <Text
+              style={{ color: theme.text, fontSize: 13, fontWeight: "600" }}
+            >
               Louis AI đang tạo bài viết...
             </Text>
           </View>
-          <View style={{ height: 2.5, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', width: '100%' }}>
-            <Animated.View 
-              style={{ 
-                height: '100%', 
-                backgroundColor: '#8e44ad', 
-                width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] })
-              }} 
+          <View
+            style={{
+              height: 2.5,
+              backgroundColor: isDark
+                ? "rgba(255,255,255,0.05)"
+                : "rgba(0,0,0,0.05)",
+              width: "100%",
+            }}
+          >
+            <Animated.View
+              style={{
+                height: "100%",
+                backgroundColor: "#8e44ad",
+                width: progressAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ["0%", "100%"],
+                }),
+              }}
             />
           </View>
         </View>
@@ -373,6 +450,7 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
               activeOpacity={0.9}
               style={styles.postWrapper}
               onPress={() => router.push(`/jobs/${post.id}`)}
+              delayPressIn={120}
             >
               {/* CỘT TRÁI - AVATAR & LINE */}
               <View style={styles.leftColumn}>
@@ -384,12 +462,6 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
                     </View>
                   )}
                 </View>
-                {/* <View
-                  style={[
-                    styles.verticalLine,
-                    { backgroundColor: isDark ? "#2C2C2E" : "#f0f0f0" },
-                  ]}
-                /> */}
               </View>
 
               {/* CỘT PHẢI - NỘI DUNG */}
@@ -415,6 +487,7 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
                     >
                       {post.time}
                     </Text>
+
                     <TouchableOpacity
                       onPress={() =>
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -432,13 +505,19 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
                 </Text>
                 <Text
                   style={[styles.postContent, { color: theme.text }]}
-                  numberOfLines={3}
+                  numberOfLines={5}
                 >
                   {post.content}
                 </Text>
 
                 {/* THÔNG TIN JOB */}
                 <View style={styles.jobMetaRow}>
+                  <View style={styles.metaItem} >
+                    {/* <Clock size={14} color="#8e44ad" /> */}
+                    <Text style={[styles.metaText, { color: theme.text }]}>
+                      Hình thức: {post.type }
+                    </Text>
+                  </View>
                   <View style={styles.metaItem}>
                     <CircleDollarSign size={14} color="#8e44ad" />
                     <Text style={[styles.metaText, { color: theme.text }]}>
@@ -454,8 +533,8 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
                 </View>
 
                 {/* TAGS */}
-                <View style={styles.techStackRow}>
-                  {post.tech_stack.map((tech: string, index: number) => (
+                {/* <View style={styles.techStackRow}>
+                  {post.type.map((tech: string, index: number) => (
                     <View
                       key={index}
                       style={[
@@ -466,7 +545,7 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
                       <Text style={styles.techTagText}>{tech}</Text>
                     </View>
                   ))}
-                </View>
+                </View> */}
 
                 {/* ACTIONS */}
                 <View style={styles.actionContainer}>
@@ -535,7 +614,9 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
                     >
                       <Bookmark
                         size={22}
-                        color={bookmarkedPosts[post.id] ? "#FFD700" : theme.text}
+                        color={
+                          bookmarkedPosts[post.id] ? "#FFD700" : theme.text
+                        }
                         fill={
                           bookmarkedPosts[post.id] ? "#FFD700" : "transparent"
                         }

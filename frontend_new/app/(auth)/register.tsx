@@ -59,7 +59,7 @@ export default function RegisterScreen() {
       });
       router.back();
     } else {
-      router.replace('/(tabs)/home');
+      router.replace('../(tabs)/home');
     }
     setLoading(false);
   };
@@ -142,7 +142,7 @@ export default function RegisterScreen() {
       </View>
 
       <TouchableOpacity onPress={() => router.back()} style={styles.footerLink}>
-        <Text style={styles.linkText}>Đã có tài khoản? <Text style={{ color: accentColor, fontWeight: '700' }}>Đăng nhập</Text></Text>
+        <Text style={styles.linkText}>Có tài khoản rồi à? <Text style={{ color: accentColor, fontWeight: '700' }}>Đăng nhập</Text> đi nè!</Text>
       </TouchableOpacity>
     </ScrollView>
     </KeyboardAvoidingView>

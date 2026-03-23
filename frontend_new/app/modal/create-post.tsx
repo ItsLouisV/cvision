@@ -9,6 +9,7 @@ import axios from "axios";
 import { useRouter, Stack, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
+import CurrencyInput from 'react-native-currency-input';
 import {
   ActivityIndicator,
   Alert,
@@ -276,10 +277,10 @@ const CreateJobPost = () => {
           onPress={() => router.back()}
           style={styles.headerSide}
         >
-          <Text style={[styles.navText, { color: accentColor }]}>Hủy</Text>
+          <Text style={[styles.navText, { color: accentColor }]}>Cancel</Text>
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>
-          Đăng tin mới
+          New Post
         </Text>
         <View style={styles.headerSide}>
           <TouchableOpacity
@@ -296,7 +297,7 @@ const CreateJobPost = () => {
             {loading ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.postBtnText}>Đăng</Text>
+              <Text style={styles.postBtnText}>Post</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -388,20 +389,30 @@ const CreateJobPost = () => {
             <View style={styles.rowItem}>
               <Ionicons name="cash-outline" size={20} color={accentColor} />
               <View style={styles.salaryContainer}>
-                <TextInput
+                <CurrencyInput
                   placeholder="Từ"
                   keyboardType="numeric"
                   style={[styles.salaryInput, { color: theme.text }]}
-                  value={salaryFrom}
-                  onChangeText={setSalaryFrom}
+                  value={Number(salaryFrom)}
+                  onChangeValue={(val) => setSalaryFrom(val?.toString() || "0")}
+                  prefix={currency === "USD" ? "$" : ""}
+                  suffix={currency === "VND" ? "đ" : ""}
+                  delimiter={currency === "USD" ? "," : "."}
+                  separator={currency === "USD" ? "." : ","}
+                  precision={currency === "USD" ? 1 : 0}
                 />
                 <Text style={{ color: "#8E8E93", marginHorizontal: 8 }}>-</Text>
-                <TextInput
+                <CurrencyInput
                   placeholder="Đến"
                   keyboardType="numeric"
                   style={[styles.salaryInput, { color: theme.text }]}
-                  value={salaryTo}
-                  onChangeText={setSalaryTo}
+                  value={Number(salaryTo)}
+                  onChangeValue={(val) => setSalaryTo(val?.toString() || "0")}
+                  prefix={currency === "USD" ? "$" : ""}
+                  suffix={currency === "VND" ? "đ" : ""}
+                  delimiter={currency === "USD" ? "," : "."}
+                  separator={currency === "USD" ? "." : ","}
+                  precision={currency === "USD" ? 1 : 0}
                 />
                 {/* Nút chuyển đổi tiền tệ */}
                 <TouchableOpacity 

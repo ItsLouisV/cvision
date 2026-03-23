@@ -87,7 +87,7 @@ export default function UploadCVScreen() {
 
       if (response.data.success) {
         // Điều hướng chuẩn để reset Stack của Tab Analysis
-        router.replace("/(tabs)/analysis");
+        router.replace("/analysis");
       }
     } catch (error) {
       console.error(error);

@@ -23,11 +23,7 @@ const USERS = [
     { id: '10', name: 'phamthithuytien', subName: 'Phạm Thị Thùy Tiên', followers: '6,5K người theo dõi', avatar: 'https://i.pravatar.cc/150?u=10' },
 ];
 
-interface SearchViewProps {
-    onBack?: () => void; 
-}
-
-const SearchView = ({ onBack }: SearchViewProps) => {
+const SearchView = () => {
     const colorScheme = useColorScheme();
     const theme = Colors[colorScheme ?? 'light'];
 
@@ -48,7 +44,7 @@ const SearchView = ({ onBack }: SearchViewProps) => {
         <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
             {/* Header với nút Back */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={onBack} style={styles.backButton}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={28} color={theme.text} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, dynamicStyles.text]}>Tìm kiếm</Text>

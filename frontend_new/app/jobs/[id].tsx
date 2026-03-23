@@ -35,6 +35,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get("window");
 
@@ -112,19 +113,52 @@ const JobDetailScreen = () => {
     }
   };
 
-  // Helper Formatters
+  // Helper Formatters - Đã cập nhật logic USD/VND/Hourly cho Louis
   const formatSalary = (from: number | null, to: number | null, currency: string = "VNĐ", unit: string = "month") => {
     if (!from && !to) return "Thỏa thuận";
     if (unit === "negotiable") return "Thỏa thuận";
 
     const isVND = currency?.toUpperCase() === "VNĐ" || currency?.toUpperCase() === "VND";
+    const isUSD = currency?.toUpperCase() === "USD";
+    const isHourly = unit === "hour";
 
-    let fStr = from ? (isVND ? (from / 1000000).toFixed(0) : from.toLocaleString()) : "?";
-    let tStr = to ? (isVND ? (to / 1000000).toFixed(0) : to.toLocaleString()) : "?";
+    let fStr = "";
+    let tStr = "";
+
+    if (isVND) {
+      if (isHourly) {
+        // Lương giờ VND: Hiện số gốc có dấu chấm (Ví dụ: 25.000)
+        fStr = from ? from.toLocaleString("vi-VN") : "?";
+        tStr = to ? to.toLocaleString("vi-VN") : "?";
+      } else {
+        // Lương tháng/năm VND: Chia cho 1 triệu
+        fStr = from ? (from / 1000000).toFixed(0) : "?";
+        tStr = to ? (to / 1000000).toFixed(0) : "?";
+      }
+    } else {
+      // USD hoặc ngoại tệ: Giữ nguyên số gốc, hiển thị tối đa 1 số lẻ (Ví dụ: 12.5)
+      fStr = from ? from.toLocaleString("en-US", { maximumFractionDigits: 1 }) : "?";
+      tStr = to ? to.toLocaleString("en-US", { maximumFractionDigits: 1 }) : "?";
+    }
     
-    let salaryText = `${fStr} - ${tStr} ${isVND ? "Tr" : currency}`;
+    // Ghép chuỗi tiền tệ
+    let salaryText = "";
+    if (isVND) {
+      salaryText = isHourly ? `${fStr} - ${tStr} đ` : `${fStr} - ${tStr} triệu`;
+    } else if (isUSD) {
+      salaryText = `$${fStr} - $${tStr}`;
+    } else {
+      salaryText = `${fStr} - ${tStr} ${currency}`;
+    }
 
-    const unitMap: any = { month: "/ tháng", year: "/ năm", day: "/ ngày", project: "/ dự án" };
+    // Đơn vị thời gian
+    const unitMap: any = { 
+      hour: "/ giờ",
+      day: "/ ngày",
+      month: "/ tháng", 
+      year: "/ năm", 
+      project: "/ dự án" 
+    };
     const unitText = unitMap[unit] || "";
     
     return `${salaryText} ${unitText}`.trim();
@@ -164,7 +198,11 @@ const JobDetailScreen = () => {
   if (!job) return (
     <View style={[styles.center, { backgroundColor: theme.background }]}>
       <Text style={{ color: theme.text, fontSize: 16 }}>Không tìm thấy công việc.</Text>
-      <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20, padding: 12, backgroundColor: '#8e44ad', borderRadius: 8 }}>
+      <TouchableOpacity onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          router.back()
+        }} style={{ marginTop: 20, padding: 12, backgroundColor: '#8e44ad', borderRadius: 8 }
+      }>
         <Text style={{ color: '#fff', fontWeight: 'bold' }}>Quay lại</Text>
       </TouchableOpacity>
     </View>
@@ -187,7 +225,10 @@ const JobDetailScreen = () => {
         </Animated.View>
 
         <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.circleBtn}>
+          <TouchableOpacity onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.back()
+          }} style={styles.circleBtn}>
             <ChevronLeft size={24} color={theme.text} />
           </TouchableOpacity>
           
@@ -207,10 +248,16 @@ const JobDetailScreen = () => {
           </Animated.View>
 
           <View style={styles.headerRight}>
-            <TouchableOpacity onPress={() => setIsSaved(!isSaved)} style={styles.circleBtn}>
+            <TouchableOpacity onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setIsSaved(!isSaved)
+            }} style={styles.circleBtn}>
               <Bookmark size={20} color={isSaved ? "#8e44ad" : theme.text} fill={isSaved ? "#8e44ad" : "none"} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={onShare} style={[styles.circleBtn, { marginLeft: 8 }]}>
+            <TouchableOpacity onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onShare()
+            }} style={[styles.circleBtn, { marginLeft: 8 }]}>
               <Share2 size={20} color={theme.text} />
             </TouchableOpacity>
           </View>

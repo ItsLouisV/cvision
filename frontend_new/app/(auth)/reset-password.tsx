@@ -92,7 +92,7 @@ export default function ResetPasswordScreen() {
       });
       // Đổi mật khẩu thành công, chuyển về trang chủ
       setTimeout(() => {
-        router.replace('/(tabs)/home');
+        router.replace('../(tabs)/home');
       }, 1500);
     }
     setLoading(false);

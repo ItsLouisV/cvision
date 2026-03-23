@@ -1,5 +1,3 @@
-
-
 import {
   DarkTheme,
   DefaultTheme,
@@ -28,10 +26,21 @@ export default function RootLayout() {
             value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
           >
             <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(drawer)" />
               <Stack.Screen name="index" />
               <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+              <Stack.Screen
+                name="modal"
+                options={{ presentation: "modal" }}
+              />
+              <Stack.Screen name="jobs" />
+              <Stack.Screen name="settings" />
+              <Stack.Screen name="interview" />
+              <Stack.Screen name="notifications" />
+              <Stack.Screen name="histories" />
+              <Stack.Screen name="analysis_history" />
+              <Stack.Screen name="employer" />
+              <Stack.Screen name="search" />
             </Stack>
             <StatusBar style="auto" />
             <Toast config={toastConfig} position="top" topOffset={60} />

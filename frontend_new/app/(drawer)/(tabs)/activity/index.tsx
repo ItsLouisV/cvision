@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   useColorScheme,
   View,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -189,8 +190,15 @@ export default function InterviewHistoryScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        onRefresh={onRefresh}
-        refreshing={refreshing}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={accentColor}
+            colors={[accentColor]}
+            progressViewOffset={Platform.OS === 'ios' ? 140 : 40} 
+          />
+        }
         ListHeaderComponent={
           <TouchableOpacity
             activeOpacity={0.9}

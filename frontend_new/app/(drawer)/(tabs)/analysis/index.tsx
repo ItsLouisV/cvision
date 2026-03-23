@@ -197,24 +197,6 @@ export default function CVAnalysisScreen() {
     </TouchableOpacity>
   );
 
-  if (loading && !refreshing) {
-    // Chỉ show màn hình load nếu không phải đang pull-to-refresh
-    return (
-      <View
-        style={[
-          styles.container,
-          styles.center,
-          { backgroundColor: theme.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={accentColor} />
-        <Text style={{ marginTop: 55, color: "#8E8E93", fontWeight: "600" }}>
-          AI đang đọc dữ liệu...
-        </Text>
-      </View>
-    );
-  }
-
   return (
     <View
       style={[
@@ -260,7 +242,14 @@ export default function CVAnalysisScreen() {
           />
         }
       >
-        {analysis ? (
+        {loading && !refreshing ? (
+          <View style={styles.innerLoading}>
+            <ActivityIndicator size="large" color={accentColor} />
+            <Text style={{ marginTop: 20, color: "#8E8E93", fontWeight: "600" }}>
+              AI đang đọc dữ liệu...
+            </Text>
+          </View>
+        ) : analysis ? (
           <>
             {/* Hiển thị tên file CV đang phân tích */}
             <View style={styles.cvInfoContainer}>
@@ -393,7 +382,7 @@ export default function CVAnalysisScreen() {
 
             <TouchableOpacity
               style={styles.reUploadBtn}
-              onPress={() => router.push("/(tabs)/analysis/upload")}
+              onPress={() => router.push("/analysis/upload")}
             >
               <Text style={styles.reUploadText}>Phân tích CV khác</Text>
             </TouchableOpacity>
@@ -408,7 +397,7 @@ export default function CVAnalysisScreen() {
             </Text>
             <TouchableOpacity
               style={[styles.mainBtn, { backgroundColor: accentColor }]}
-              onPress={() => router.push("/(tabs)/analysis/upload")}
+              onPress={() => router.push("/analysis/upload")}
             >
               <Text style={styles.mainBtnText}>Tải CV ngay</Text>
             </TouchableOpacity>
@@ -421,7 +410,6 @@ export default function CVAnalysisScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { justifyContent: "center", alignItems: "center" },
   headerBlur: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 },
   header: {
     paddingHorizontal: 20,
@@ -606,4 +594,9 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
   mainBtnText: { color: "#fff", fontWeight: "800", fontSize: 17 },
+  innerLoading: {
+    height: Dimensions.get('window').height * 0.6, // Cho nó cao một chút để căn giữa vùng trống
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });

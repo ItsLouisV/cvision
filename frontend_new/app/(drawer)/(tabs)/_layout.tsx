@@ -99,7 +99,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="analysis"
         options={{
-          href: role === "candidate" ? "/(tabs)/analysis" : null,
+          href: role === "candidate" ? "/analysis" : null,
           tabBarIcon: ({ color, focused }) => (
             <Sparkles
               color={color}
@@ -137,7 +137,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="activity"
         options={{
-          href: role === "candidate" ? "/(tabs)/activity" : null,
+          href: role === "candidate" ? "/activity" : null,
           tabBarIcon: ({ color, focused }) => (
             <Flame
               color={color}
