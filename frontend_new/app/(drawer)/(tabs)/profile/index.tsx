@@ -163,7 +163,7 @@ export default function SettingsScreen() {
             />
           }
         />
-        <Item icon="lock-closed" label="Đổi mật khẩu" color="#8E8E93" />
+        <Item icon="lock-closed" label="Đổi mật khẩu" color="#8E8E93" onPress={() => router.push('/(auth)/reset-password')} />
         <Item icon="eye-off" label="Chế độ riêng tư" color="#5AC8FA" subLabel="Ẩn trạng thái với nhà tuyển dụng" />
         <Item icon="color-palette" label="Giao diện" color="#f458f7ff" isLast onPress={() => router.push('/settings/appearance')} />
       </Section>

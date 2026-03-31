@@ -1,203 +1,242 @@
-import React from 'react';
-import { StyleSheet, Text, View, TextInput, ScrollView, Image, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState, useEffect, useMemo, memo } from 'react';
+import { 
+  StyleSheet, Text, View, TextInput, 
+  FlatList, Image, TouchableOpacity, ActivityIndicator, Platform 
+} from 'react-native';
+import { Search, ChevronLeft, X, Briefcase, MapPin } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-// Sử dụng theme hệ thống
-import { Colors } from '@/constants/themes';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { router } from 'expo-router';
 
-const SUGGESTIONS = ['LGBTQ Threads', 'Makeup Threads', 'Book Threads', 'Tarot Threads', 'Hồ Gươm'];
+// Kết nối tài nguyên của Louis
+import { supabase } from '@/lib/supabase';
+import { Colors } from '@/constants/themes';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
-const USERS = [
-    { id: '1', name: 'tr.giahuy1504', subName: 'Trương Gia Huy', followers: '188 người theo dõi', avatar: 'https://i.pravatar.cc/150?u=1' },
-    { id: '2', name: 'zaynn_jela', subName: 'zaynnn', followers: '2,2K người theo dõi', avatar: 'https://i.pravatar.cc/150?u=2' },
-    { id: '3', name: '_ponpon2811', subName: 'Tiêu Chiến', followers: '4,8K người theo dõi', avatar: 'https://i.pravatar.cc/150?u=3' },
-    { id: '4', name: 'hai_truongv', subName: 'Võ Trường Hải', followers: '397 người theo dõi', avatar: 'https://i.pravatar.cc/150?u=4' },
-    { id: '5', name: 'nguyenminhduc_', subName: 'Nguyễn Minh Đức', followers: '1,1K người theo dõi', avatar: 'https://i.pravatar.cc/150?u=5' },
-    { id: '6', name: 'lethihanggg', subName: 'Lê Thị Hằng', followers: '3,4K người theo dõi', avatar: 'https://i.pravatar.cc/150?u=6' },
-    { id: '7', name: 'phamvanthanh_', subName: 'Phạm Văn Thành', followers: '256 người theo dõi', avatar: 'https://i.pravatar.cc/150?u=7' },
-    { id: '8', name: 'tranthimy_', subName: 'Trần Thị Mỹ', followers: '5K người theo dõi', avatar: 'https://i.pravatar.cc/150?u=8' },
-    { id: '9', name: 'vuongquockhanh', subName: 'Vương Quốc Khánh', followers: '789 người theo dõi', avatar: 'https://i.pravatar.cc/150?u=9' },
-    { id: '10', name: 'phamthithuytien', subName: 'Phạm Thị Thùy Tiên', followers: '6,5K người theo dõi', avatar: 'https://i.pravatar.cc/150?u=10' },
-];
+// --- Sub-Component: Item kết quả (Dùng memo để tối ưu cuộn danh sách) ---
+const ProfileItem = memo(({ profile, theme, isDark }: any) => {
+  const accentColor = '#8e44ad';
+  
+  return (
+    <TouchableOpacity 
+      style={styles.profileItem} 
+    //   onPress={() => router.push(`/profile/${profile.id}`)}
+      activeOpacity={0.7}
+    >
+      {/* Avatar */}
+      <Image 
+        source={{ uri: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name}&background=8e44ad&color=fff` }} 
+        style={styles.avatar} 
+      />
+      
+      {/* Thông tin chính */}
+      <View style={[styles.infoContainer, { borderBottomColor: isDark ? '#222' : '#F0F0F0' }]}>
+        <View style={{ flex: 1 }}>
+          <View style={styles.nameRow}>
+            <Text style={[styles.fullName, { color: theme.text }]} numberOfLines={1}>
+              {profile.full_name || 'Người dùng mới'}
+            </Text>
+            {profile.is_open_to_work && (
+              <View style={styles.openBadge}>
+                <Text style={styles.openText}>Sẵn sàng</Text>
+              </View>
+            )}
+          </View>
+          
+          <Text style={styles.headline} numberOfLines={1}>
+            {profile.headline || 'Chưa cập nhật tiêu đề'}
+          </Text>
+          
+          <View style={styles.metaRow}>
+            <View style={styles.metaItem}>
+              <Briefcase size={12} color="#8E8E93" />
+              <Text style={styles.metaText}>{profile.years_of_experience} năm kinh nghiệm</Text>
+            </View>
+            {profile.preferred_locations?.[0] && (
+              <View style={styles.metaItem}>
+                <MapPin size={12} color="#8E8E93" />
+                <Text style={styles.metaText}>{profile.preferred_locations[0]}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Nút xem chi tiết nhỏ gọn */}
+        <TouchableOpacity style={[styles.detailBtn, { borderColor: accentColor }]}>
+          <Text style={{ color: accentColor, fontWeight: '700', fontSize: 12 }}>Hồ sơ</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 const SearchView = () => {
-    const colorScheme = useColorScheme();
-    const theme = Colors[colorScheme ?? 'light'];
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const theme = Colors[colorScheme ?? 'light'];
 
-    // Màu sắc động dựa trên theme
-    const dynamicStyles = {
-        container: { backgroundColor: theme.background },
-        text: { color: theme.text },
-        searchBar: { backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#f1f1f1' },
-        subText: { color: colorScheme === 'dark' ? '#888' : '#666' },
-        border: { borderColor: colorScheme === 'dark' ? '#333' : '#f0f0f0' },
-        tag: { 
-            backgroundColor: theme.background, 
-            borderColor: colorScheme === 'dark' ? '#444' : '#eee' 
-        }
-    };
+  const [searchQuery, setSearchQuery] = useState('');
+  const [profiles, setProfiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-    return (
-        <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
-            {/* Header với nút Back */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="chevron-back" size={28} color={theme.text} />
-                </TouchableOpacity>
-                <Text style={[styles.headerTitle, dynamicStyles.text]}>Tìm kiếm</Text>
-            </View>
+  // --- Logic: Truy vấn Supabase ---
+  const fetchProfiles = async (query: string) => {
+  setLoading(true);
+  try {
+    // 1. Lấy ID của Louis (người đang dùng app)
+    const { data: { user } } = await supabase.auth.getUser();
 
-            {/* Search Bar */}
-            <View style={[styles.searchSection, dynamicStyles.searchBar]}>
-                <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
-                <TextInput
-                    style={[styles.input, dynamicStyles.text]}
-                    placeholder="Tìm kiếm"
-                    placeholderTextColor="#999"
-                />
-            </View>
+    let supabaseQuery = supabase
+      .from('user_profiles')
+      .select('id, full_name, headline, avatar_url, is_open_to_work, years_of_experience, preferred_locations')
+      // 2. 🎯 LOẠI BỎ CHÍNH MÌNH: id KHÔNG ĐƯỢC BẰNG user.id
+      .neq('id', user?.id) 
+      .order('created_at', { ascending: false })
+      .limit(20);
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-                {/* Horizontal Suggestions */}
-                <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false} 
-                    style={styles.suggestionScroll}
-                    contentContainerStyle={{ paddingRight: 20 }}
-                >
-                    {SUGGESTIONS.map((item, index) => (
-                        <View key={index} style={[styles.suggestionTag, dynamicStyles.tag]}>
-                        <Text style={[styles.suggestionText, dynamicStyles.text]}>{item}</Text>
-                        </View>
-                    ))}
-                </ScrollView>
+    if (query.trim()) {
+      supabaseQuery = supabaseQuery.or(`full_name.ilike.%${query}%,headline.ilike.%${query}%`);
+    }
 
-                <Text style={[styles.sectionTitle, dynamicStyles.subText]}>Gợi ý theo dõi</Text>
+    const { data, error } = await supabaseQuery;
+    if (error) throw error;
+    setProfiles(data || []);
+  } catch (error) {
+    console.error('Search query error:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
-                {/* Users List */}
-                {USERS.map((user) => (
-                    <View key={user.id} style={styles.userItem}>
-                        <Image source={{ uri: user.avatar }} style={styles.avatar} />
-                        <View style={[styles.userInfo, dynamicStyles.border]}>
-                            <View style={styles.userTextContent}>
-                                <Text style={[styles.userName, dynamicStyles.text]}>{user.name}</Text>
-                                <Text style={[styles.subName, dynamicStyles.subText]}>{user.subName}</Text>
-                                <Text style={[styles.followerCount, dynamicStyles.text]}>{user.followers}</Text>
-                            </View>
-                            <TouchableOpacity style={[styles.followButton, dynamicStyles.border]}>
-                                <Text style={[styles.followButtonText, dynamicStyles.text]}>Theo dõi</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                ))}
-            </ScrollView>
-        </SafeAreaView>
-    );
+  // --- Tối ưu Performance: Debounce 400ms ---
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchProfiles(searchQuery);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+      {/* Header Search Bar */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <ChevronLeft size={28} color={theme.text} />
+        </TouchableOpacity>
+        
+        <View style={[styles.searchBox, { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' }]}>
+          <Search size={18} color="#8E8E93" />
+          <TextInput
+            style={[styles.input, { color: theme.text }]}
+            placeholder="Tìm ứng viên, vị trí công việc..."
+            placeholderTextColor="#8E8E93"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+          />
+          {searchQuery !== '' && Platform.OS === 'android' && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <X size={18} color="#8E8E93" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* Danh sách kết quả */}
+      {loading && !profiles.length ? (
+        <View style={styles.center}>
+          <ActivityIndicator color="#8e44ad" size="large" />
+        </View>
+      ) : (
+        <FlatList
+          data={profiles}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => <ProfileItem profile={item} theme={theme} isDark={isDark} />}
+          contentContainerStyle={styles.listPadding}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <Text style={styles.sectionTitle}>
+              {searchQuery ? `Kết quả cho "${searchQuery}"` : 'Ứng viên tiềm năng'}
+            </Text>
+          }
+          ListEmptyComponent={
+            !loading ? <Text style={styles.emptyText}>Không tìm thấy hồ sơ nào phù hợp</Text> : null
+          }
+          // Tối ưu hóa FlatList
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
+        />
+      )}
+    </SafeAreaView>
+  );
 };
 
 export default SearchView;
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        height: 50,
-        marginBottom: 10,
-    },
-    backButton: {
-        marginRight: 10,
-        marginLeft: -10,
-        padding: 5,
-    },
-    headerTitle: {
-        fontSize: 28,
-        fontWeight: 'bold',
-    },
-    searchSection: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderRadius: 12,
-        paddingHorizontal: 12,
-        height: 45,
-        marginHorizontal: 16,
-        marginBottom: 15,
-    },
-    searchIcon: {
-        marginRight: 8,
-    },
-    input: {
-        flex: 1,
-        fontSize: 16,
-    },
-    suggestionScroll: {
-        paddingLeft: 16,
-        marginBottom: 20,
-    },
-    suggestionTag: {
-        borderWidth: 1,
-        borderRadius: 10,
-        paddingHorizontal: 15,
-        paddingVertical: 8,
-        marginRight: 8,
-    },
-    suggestionText: {
-        fontWeight: '600',
-        fontSize: 14,
-    },
-    sectionTitle: {
-        fontSize: 16,
-        paddingHorizontal: 16,
-        marginBottom: 15,
-    },
-    userItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        marginBottom: 20,
-    },
-    avatar: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: '#eee',
-    },
-    userInfo: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginLeft: 15,
-        borderBottomWidth: 0.5,
-        paddingBottom: 15,
-    },
-    userTextContent: {
-        flex: 1,
-    },
-    userName: {
-        fontSize: 15,
-        fontWeight: '700',
-    },
-    subName: {
-        fontSize: 14,
-    },
-    followerCount: {
-        fontSize: 14,
-        marginTop: 4,
-    },
-    followButton: {
-        borderWidth: 1,
-        borderRadius: 8,
-        paddingHorizontal: 15,
-        paddingVertical: 6,
-    },
-    followButtonText: {
-        fontWeight: '700',
-        fontSize: 14,
-    },
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  backBtn: { marginRight: 8, marginLeft: -8, padding: 4 },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 46,
+  },
+  input: { flex: 1, fontSize: 16, marginLeft: 10, paddingVertical: 0 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  listPadding: { paddingBottom: 40 },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#8E8E93',
+    paddingHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 15,
+    textTransform: 'uppercase',
+  },
+  profileItem: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 20,
+  },
+  avatar: { width: 56, height: 56, borderRadius: 36, backgroundColor: '#eee' },
+  infoContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 15,
+    borderBottomWidth: 0.5,
+    paddingBottom: 15,
+  },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  fullName: { fontSize: 16, fontWeight: '700' },
+  openBadge: {
+    backgroundColor: 'rgba(52, 211, 153, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  openText: { color: '#10B981', fontSize: 10, fontWeight: '800' },
+  headline: { fontSize: 14, color: '#8E8E93', marginTop: 2, fontWeight: '500' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 12 },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaText: { fontSize: 12, color: '#8E8E93' },
+  detailBtn: {
+    borderWidth: 1.5,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  emptyText: { textAlign: 'center', marginTop: 40, color: '#8E8E93' },
 });

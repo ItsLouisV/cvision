@@ -12,9 +12,14 @@ export default function ProfileLayout() {
             <Stack.Screen 
                 name="index" 
                 options={{ 
-                    title: 'Settings',
+                    title: 'Cài đặt',
                     headerShown: true,
                     headerLargeTitleEnabled: true,
+                    headerLargeTitleStyle: { color: theme.text },
+                    headerTitleStyle: { color: theme.text },
+                    headerLargeTitle: true,
+                    headerTransparent: true,
+                    headerLargeTitleShadowVisible: false,
                 }} 
             />
         </Stack>

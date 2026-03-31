@@ -5,7 +5,9 @@ import { Colors } from "@/constants/themes";
 import { useDrawerProgress } from "@react-navigation/drawer";
 import { useAnimatedReaction, useSharedValue, runOnJS } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import SidebarView from "../components/SidebarView";
+import SidebarView from "../components/side-bar";
+
+import { usePathname } from "expo-router";
 
 const { width } = Dimensions.get("window");
 const HAPTIC_THRESHOLD = 0.35;
@@ -42,6 +44,12 @@ export default function DrawerLayout() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
 
+  const pathname = usePathname();
+
+  // Chỉ cho phép swipe mở drawer ở màn hình FeedView (Home Tab)
+  // Trong expo-router, đường dẫn thư mục gốc hoặc /home thường dùng cho index của (tabs)/home
+  const canSwipe = pathname === "/" || pathname === "/home";
+
   return (
     <Drawer
       screenOptions={{
@@ -50,8 +58,8 @@ export default function DrawerLayout() {
           width: width * 0.82,
           backgroundColor: theme.background,
         },
-        swipeEnabled: true,
-        swipeEdgeWidth: 30,
+        swipeEnabled: canSwipe,
+        swipeEdgeWidth: Dimensions.get("window").width,
       }}
       drawerContent={(props) => (
         <DrawerContentWithHaptic navigation={props.navigation} />

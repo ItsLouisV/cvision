@@ -1,33 +1,50 @@
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Alert, 
+  ActivityIndicator, 
+  Keyboard, 
+  TouchableWithoutFeedback,
+  useColorScheme,
+  Platform,
+  KeyboardAvoidingView
+} from 'react-native';
 import * as Linking from 'expo-linking';
-import { useEffect } from 'react';
-
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ResetPasswordScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmVisible, setIsConfirmVisible] = useState(false);
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
   
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const accentColor = '#8e44ad';
 
+  const theme = {
+    bg: isDark ? '#000' : '#F8F9FA',
+    text: isDark ? '#FFFFFF' : '#1C1C1E',
+    subtext: isDark ? '#8E8E93' : '#666666',
+    inputBg: isDark ? '#111' : '#F2F2F7',
+  };
+
   const url = Linking.useLinkingURL();
 
+  // LOGIC XỬ LÝ TOKEN TỪ URL (GIỮ NGUYÊN VÌ RẤT QUAN TRỌNG)
   useEffect(() => {
     const setSessionFromUrl = async () => {
       if (url) {
-        console.log("ResetPassword URL:", url);
-        
-        // Supabase often sends tokens in a hash fragment for security: #access_token=...
-        // Linking.parse does not always reliably extract from the hash.
         let accessToken = '';
         let refreshToken = '';
 
@@ -42,55 +59,45 @@ export default function ResetPasswordScreen() {
         }
 
         if (accessToken && refreshToken) {
-          console.log("✅ Đang thiết lập Auth Session bằng Token mới...");
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
           if (error) console.log("❌ Lỗi thiết lập session:", error.message);
-          else console.log("✅ Đã thiết lập Auth Session thành công!");
-        } else {
-           console.log("❌ Không tìm thấy mã access_token trong đường link.");
+          else console.log("✅ Đã xác thực người dùng thành công qua link!");
         }
       }
     };
-
     setSessionFromUrl();
   }, [url]);
 
   const onUpdatePassword = async () => {
     if (!password || !confirmPassword) {
-      Alert.alert('Thông báo', 'Vui lòng nhập đầy đủ mật khẩu mới');
+      Alert.alert('Thông báo', 'Vui lòng nhập đầy đủ mật khẩu mới nhé!');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Thông báo', 'Mật khẩu xác nhận không khớp');
+      Alert.alert('Lỗi khớp mật khẩu', 'Mật khẩu xác nhận không trùng khớp.');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Thông báo', 'Mật khẩu phải có ít nhất 6 ký tự');
+      Alert.alert('Mật khẩu yếu', 'Mật khẩu cần ít nhất 6 ký tự để bảo mật.');
       return;
     }
 
     setLoading(true);
-    
-    // Gọi API update password của Supabase
-    // Người dùng nhấn link từ email sẽ được Supabase xử lý auth session qua deep link
-    const { error } = await supabase.auth.updateUser({
-      password: password,
-    });
+    const { error } = await supabase.auth.updateUser({ password: password });
 
     if (error) {
-      Alert.alert('Lỗi', error.message);
+      Alert.alert('Lỗi cập nhật', error.message);
     } else {
       Toast.show({
         type: 'success',
-        text1: 'Thành công',
-        text2: 'Mật khẩu đã được cập nhật. Đang chuyển về trang chủ...',
+        text1: 'Thành công!',
+        text2: 'Mật khẩu đã được đổi. Đang quay lại trang chủ...',
       });
-      // Đổi mật khẩu thành công, chuyển về trang chủ
       setTimeout(() => {
         router.replace('../(tabs)/home');
       }, 1500);
@@ -99,95 +106,159 @@ export default function ResetPasswordScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={[styles.container, { backgroundColor: isDark ? '#000' : '#F8F9FA' }]}>
-      <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-        <Ionicons name="close" size={28} color={isDark ? '#FFF' : '#000'} />
-      </TouchableOpacity>
-
-      <View style={styles.header}>
-        <View style={[styles.logoCircle, { backgroundColor: 'rgba(142, 68, 173, 0.1)' }]}>
-          <Ionicons name="lock-closed-outline" size={32} color={accentColor} />
-        </View>
-        <Text style={[styles.title, { color: isDark ? '#fff' : '#000' }]}>Tạo mật khẩu mới</Text>
-        <Text style={styles.subtitle}>
-          Vui lòng nhập mật khẩu mới của bạn bên dưới.
-        </Text>
-      </View>
-
-      <View style={styles.form}>
-        <View style={[styles.inputContainer, { backgroundColor: isDark ? '#111' : '#fff' }]}>
-          <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-          <TextInput
-            placeholder="Mật khẩu mới"
-            placeholderTextColor="#666"
-            style={[styles.input, { color: isDark ? '#fff' : '#000' }]}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-        </View>
-
-        <View style={[styles.inputContainer, { backgroundColor: isDark ? '#111' : '#fff' }]}>
-          <Ionicons name="checkmark-circle-outline" size={20} color="#666" style={styles.inputIcon} />
-          <TextInput
-            placeholder="Xác nhận mật khẩu"
-            placeholderTextColor="#666"
-            style={[styles.input, { color: isDark ? '#fff' : '#000' }]}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
-        </View>
-
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+        
+        {/* NÚT ĐÓNG (THAY VÌ BACK VÌ ĐÂY LÀ FLOW ĐẶC BIỆT) */}
         <TouchableOpacity 
-          style={[styles.button, { backgroundColor: accentColor }]} 
-          onPress={onUpdatePassword}
-          disabled={loading}
+          style={[styles.closeBtn, { backgroundColor: isDark ? '#1C1C1E' : '#FFF' }]} 
+          onPress={() => router.back()}
         >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Cập nhật mật khẩu</Text>
-          )}
+          <Ionicons name="close" size={24} color={theme.text} />
         </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+
+        <View style={styles.inner}>
+          
+          <View style={styles.header}>
+            <View style={[styles.logoCircle, { backgroundColor: 'rgba(142, 68, 173, 0.1)' }]}>
+              <MaterialCommunityIcons name="shield-lock-outline" size={44} color={accentColor} />
+            </View>
+            <Text style={[styles.title, { color: theme.text }]}>Mật khẩu mới</Text>
+            <Text style={styles.subtitle}>
+              Hãy chọn một mật khẩu mạnh để bảo vệ tài khoản của mình nhé.
+            </Text>
+          </View>
+
+          <View style={styles.form}>
+            {/* Ô NHẬP MẬT KHẨU MỚI */}
+            <View style={[
+              styles.inputWrapper, 
+              { backgroundColor: theme.inputBg },
+              focusedInput === 'pass' && { borderColor: accentColor, borderWidth: 1.5 }
+            ]}>
+              <Ionicons name="lock-closed-outline" size={20} color={focusedInput === 'pass' ? accentColor : "#999"} />
+              <TextInput
+                placeholder="Mật khẩu mới"
+                placeholderTextColor="#999"
+                style={[styles.input, { color: theme.text }]}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!isPasswordVisible}
+                onFocus={() => setFocusedInput('pass')}
+                onBlur={() => setFocusedInput(null)}
+              />
+              <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
+                <Ionicons name={isPasswordVisible ? "eye-off-outline" : "eye-outline"} size={20} color="#999" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Ô XÁC NHẬN MẬT KHẨU */}
+            <View style={[
+              styles.inputWrapper, 
+              { backgroundColor: theme.inputBg },
+              focusedInput === 'confirm' && { borderColor: accentColor, borderWidth: 1.5 }
+            ]}>
+              <Ionicons name="checkmark-circle-outline" size={20} color={focusedInput === 'confirm' ? accentColor : "#999"} />
+              <TextInput
+                placeholder="Xác nhận mật khẩu mới"
+                placeholderTextColor="#999"
+                style={[styles.input, { color: theme.text }]}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!isConfirmVisible}
+                onFocus={() => setFocusedInput('confirm')}
+                onBlur={() => setFocusedInput(null)}
+              />
+              <TouchableOpacity onPress={() => setIsConfirmVisible(!isConfirmVisible)}>
+                <Ionicons name={isConfirmVisible ? "eye-off-outline" : "eye-outline"} size={20} color="#999" />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.mainButton, { backgroundColor: accentColor }]} 
+              onPress={onUpdatePassword}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <View style={styles.buttonContent}>
+                  <Text style={styles.buttonText}>Cập nhật mật khẩu</Text>
+                  <Ionicons name="shield-checkmark-outline" size={20} color="#fff" />
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+      </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center' },
-  backBtn: { position: 'absolute', top: 60, right: 24, zIndex: 10, padding: 8 },
+  container: { flex: 1 },
+  inner: { flex: 1, padding: 24, justifyContent: 'center' },
+  closeBtn: { 
+    position: 'absolute', 
+    top: Platform.OS === 'ios' ? 60 : 20, 
+    right: 24, 
+    width: 44, 
+    height: 44, 
+    borderRadius: 22, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3
+  },
   header: { alignItems: 'center', marginBottom: 40 },
-  logoCircle: { width: 64, height: 64, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#666', textAlign: 'center', lineHeight: 22, paddingHorizontal: 16 },
-  form: { width: '100%', alignItems: 'center' },
-  inputContainer: {
+  logoCircle: { 
+    width: 84, 
+    height: 84, 
+    borderRadius: 26, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginBottom: 24 
+  },
+  title: { fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
+  subtitle: { 
+    fontSize: 15, 
+    color: '#8E8E93', 
+    textAlign: 'center', 
+    lineHeight: 22, 
+    paddingHorizontal: 15, 
+    marginTop: 10 
+  },
+  form: { width: '100%' },
+  inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 56,
-    borderRadius: 16,
+    height: 60,
+    borderRadius: 18,
     paddingHorizontal: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(142, 68, 173, 0.1)',
-    width: '100%',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
-  inputIcon: { marginRight: 12 },
-  input: { flex: 1, height: '100%', fontSize: 16 },
-  button: {
-    width: '100%',
-    height: 56,
-    borderRadius: 16,
+  input: { flex: 1, height: '100%', fontSize: 16, marginLeft: 12 },
+  mainButton: {
+    height: 60,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#8e44ad',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-    marginTop: 8,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
+    marginTop: 10
   },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  buttonContent: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  buttonText: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });

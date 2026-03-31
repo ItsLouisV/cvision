@@ -12,12 +12,9 @@ export default function AnalysisHistoryLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        headerStyle: { backgroundColor: theme.background },
-        headerTintColor: theme.text,
-        headerShadowVisible: false,
       }}
     >
-      <Stack.Screen name="index" options={{ title: "Chi tiết phân tích" }} />
+      <Stack.Screen name="index" />
     </Stack>
   );
 }

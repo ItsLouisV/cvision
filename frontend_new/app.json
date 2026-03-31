@@ -18,9 +18,25 @@
       "bundleIdentifier": "com.louisv.cvision",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "associatedDomains": [
+        "applinks:louisjob.app"
+      ]
     },
     "android": {
+      "package": "com.louisv.cvision", // ⬅️ Thêm package name đồng bộ
+      "intentFilters": [               // ⬅️ Cấu hình để mở link https
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": {
+            "scheme": "https",
+            "host": "louisjob.app",
+            "pathPrefix": "/jobs"
+          },
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"

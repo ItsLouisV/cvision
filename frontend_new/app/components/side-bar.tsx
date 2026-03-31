@@ -11,6 +11,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "@/constants/themes";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { router } from "expo-router";
+import * as Haptics from "expo-haptics"; // Thêm Haptics cho chuyên nghiệp
 
 const SAVED_CATEGORIES = [
   { id: "1", title: "Dành cho bạn", icon: "heart-outline", count: 12 },
@@ -25,13 +27,28 @@ interface SidebarViewProps {
 const SidebarView = ({ onClose }: SidebarViewProps) => {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
+  const isDark = colorScheme === "dark";
+
+  // 🎯 HÀM XỬ LÝ CHUYỂN TRANG & ĐÓNG DRAWER
+  const handleNavigation = (path: string) => {
+    // 1. Tạo cảm giác vật lý khi nhấn
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    // 2. Thực hiện đóng Drawer trước để giao diện mượt mà
+    if (onClose) onClose();
+
+    // 3. Chuyển trang (dùng setTimeout một chút để Drawer kịp lướt đi)
+    setTimeout(() => {
+      router.push(path as any);
+    }, 10);
+  };
 
   const dynamicStyles = {
     container: { backgroundColor: theme.background },
     text: { color: theme.text },
-    border: { borderColor: colorScheme === "dark" ? "#333" : "#EEE" },
-    card: { backgroundColor: colorScheme === "dark" ? "#1A1A1A" : "#FFF" },
-    subText: { color: colorScheme === "dark" ? "#888" : "#AAA" },
+    border: { borderColor: isDark ? "#333" : "#EEE" },
+    card: { backgroundColor: isDark ? "#1A1A1A" : "#FFF" },
+    subText: { color: isDark ? "#888" : "#AAA" },
   };
 
   return (
@@ -52,7 +69,6 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
         </View>
       </View>
 
-      {/* Content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -60,22 +76,28 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
         {/* Quick Actions */}
         <View style={styles.quickActions}>
           <TouchableOpacity
+            onPress={() => handleNavigation("/components/loved-posts")} // Cập nhật path đúng của Louis
             style={[styles.actionBox, dynamicStyles.border, dynamicStyles.card]}
           >
             <Ionicons name="heart-outline" size={28} color={theme.text} />
+            <Text style={[styles.actionLabel, dynamicStyles.text]}>Yêu thích</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
+            onPress={() => handleNavigation("/components/saved-posts")} // Cập nhật path đúng của Louis
             style={[styles.actionBox, dynamicStyles.border, dynamicStyles.card]}
           >
             <Ionicons name="bookmark-outline" size={28} color={theme.text} />
+            <Text style={[styles.actionLabel, dynamicStyles.text]}>Đã lưu</Text>
           </TouchableOpacity>
         </View>
 
         {/* Categories */}
-        <View style={[styles.section, dynamicStyles.border]}>
+        <View style={[styles.section, { borderColor: dynamicStyles.border.borderColor }]}>
           {SAVED_CATEGORIES.map((item, index) => (
             <TouchableOpacity
               key={item.id}
+              // onPress={() => handleNavigation("/(tabs)")} // Ví dụ quay lại Feed chính
               style={[
                 styles.categoryItem,
                 index !== SAVED_CATEGORIES.length - 1 && {
@@ -86,11 +108,7 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
             >
               <View style={styles.categoryLeft}>
                 <View style={styles.iconCircle}>
-                  <Ionicons
-                    name={item.icon as any}
-                    size={22}
-                    color={theme.text}
-                  />
+                  <Ionicons name={item.icon as any} size={22} color={theme.text} />
                 </View>
                 <Text style={[styles.categoryTitle, dynamicStyles.text]}>
                   {item.title}
@@ -98,34 +116,10 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
               </View>
 
               <View style={styles.categoryRight}>
-                {item.id === "3" && (
-                  <Ionicons
-                    name="chatbubble-ellipses-outline"
-                    size={20}
-                    color={dynamicStyles.subText.color}
-                    style={{ marginRight: 10 }}
-                  />
-                )}
-                <Ionicons
-                  name="chevron-forward"
-                  size={18}
-                  color={colorScheme === "dark" ? "#555" : "#CCC"}
-                />
+                <Ionicons name="chevron-forward" size={18} color={isDark ? "#555" : "#CCC"} />
               </View>
             </TouchableOpacity>
           ))}
-        </View>
-
-        {/* Empty state */}
-        <View style={styles.emptyState}>
-          <Ionicons
-            name="albums-outline"
-            size={48}
-            color={colorScheme === "dark" ? "#222" : "#EEE"}
-          />
-          <Text style={[styles.emptyText, dynamicStyles.subText]}>
-            Chưa có nội dung lưu mới nào khác
-          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -135,9 +129,7 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
 export default SidebarView;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -147,22 +139,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(150,150,150,0.2)",
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-    letterSpacing: -0.5,
-  },
-  headerIcons: {
-    flexDirection: "row",
-  },
-  iconButton: {
-    marginLeft: 15,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 40,
-  },
+  headerTitle: { fontSize: 28, fontWeight: "bold", letterSpacing: -0.5 },
+  headerIcons: { flexDirection: "row" },
+  iconButton: { marginLeft: 15 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 40 },
   quickActions: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -171,61 +151,21 @@ const styles = StyleSheet.create({
   },
   actionBox: {
     flex: 0.48,
-    height: 64,
+    height: 90, // Tăng chiều cao để chứa text
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
     ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
+      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4 },
+      android: { elevation: 2 },
     }),
   },
-  section: {
-    borderWidth: 1,
-    borderRadius: 22,
-    overflow: "hidden",
-  },
-  categoryItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-  },
-  categoryLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  iconCircle: {
-    width: 32,
-    height: 32,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  categoryTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 10,
-  },
-  categoryRight: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  emptyState: {
-    alignItems: "center",
-    marginTop: 60,
-  },
-  emptyText: {
-    marginTop: 12,
-    fontSize: 14,
-    textAlign: "center",
-  },
+  actionLabel: { fontSize: 13, fontWeight: "600", marginTop: 8 },
+  section: { borderWidth: 1, borderRadius: 22, overflow: "hidden" },
+  categoryItem: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 18, paddingHorizontal: 18 },
+  categoryLeft: { flexDirection: "row", alignItems: "center" },
+  iconCircle: { width: 32, height: 32, justifyContent: "center", alignItems: "center" },
+  categoryTitle: { fontSize: 16, fontWeight: "600", marginLeft: 10 },
+  categoryRight: { flexDirection: "row", alignItems: "center" },
 });

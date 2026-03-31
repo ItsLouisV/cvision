@@ -8,8 +8,8 @@ export default function SettingsLayout() {
             headerTintColor: '#8e44ad',
             headerStyle: { backgroundColor: 'transparent' },
         }}>
-            <Stack.Screen name="account" options={{ headerTitle: "Tài khoản" }} />
-            <Stack.Screen name="company" options={{ headerTitle: "Công ty" }} />
+            <Stack.Screen name="account/index" options={{ headerTitle: "Tài khoản" }} />
+            <Stack.Screen name="company/index" options={{ headerTitle: "Công ty" }} />
         </Stack>
     );
 }
