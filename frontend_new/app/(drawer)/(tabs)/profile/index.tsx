@@ -106,7 +106,7 @@ export default function SettingsScreen() {
           style={styles.avatar} 
         />
         <View style={styles.profileInfo}>
-          <Text style={[styles.name, { color: theme.text }]}>{profile?.full_name || 'Louis User'}</Text>
+          <Text style={[styles.name, { color: theme.text }]}>{profile?.full_name || 'CVision User'}</Text>
           <Text style={styles.subText}>{isEmployer ? (profile?.employers?.[0]?.company_name || profile?.email) : profile?.email}</Text>
           <View style={[styles.roleTag, { backgroundColor: isEmployer ? '#E3F2FD' : '#F3E5F5' }]}>
             <Text style={[styles.roleTagText, { color: isEmployer ? '#1976D2' : '#8E24AA' }]}>

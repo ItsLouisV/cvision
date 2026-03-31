@@ -50,7 +50,7 @@ export default function InterviewHistoryScreen() {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
-        // Lấy tên từ metadata mà Louis đã lưu lúc đăng ký
+        // Lấy tên từ metadata đã lưu lúc đăng ký
         setUserName(user.user_metadata?.full_name || "Username");
 
         const { data, error } = await supabase

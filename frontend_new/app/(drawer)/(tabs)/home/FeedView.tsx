@@ -725,7 +725,7 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       await Share.share({
-        message: `[Louis AI] Cơ hội việc làm hấp dẫn: ${title} tại ${company}. Xem ngay trên App!`,
+        message: `[CVision] Cơ hội việc làm hấp dẫn: ${title} tại ${company}. Xem ngay trên App!`,
       });
     } catch (error) {
       console.error(error);

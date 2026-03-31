@@ -38,7 +38,7 @@ export default function ForgotPasswordScreen() {
 
   const onResetPassword = async () => {
     if (!email) {
-      Alert.alert('Thông báo', 'Louis vui lòng nhập email để tiếp tục nhé!');
+      Alert.alert('Thông báo', 'Vui lòng nhập email để tiếp tục nhé!');
       return;
     }
     
@@ -57,7 +57,7 @@ export default function ForgotPasswordScreen() {
       Toast.show({
         type: 'success',
         text1: 'Thành công!',
-        text2: 'Louis kiểm tra hòm thư để đặt lại mật khẩu nhé.',
+        text2: 'Hãy kiểm tra hòm thư để đặt lại mật khẩu nhé.',
       });
     } catch (error: any) {
       Alert.alert("Lỗi", error.message);

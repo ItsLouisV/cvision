@@ -94,7 +94,7 @@ const LovedPostsScreen = () => {
     <View style={styles.emptyContainer}>
       <HeartOff size={64} color={isDark ? "#333" : "#CCC"} />
       <Text style={[styles.emptyText, { color: isDark ? "#888" : "#666" }]}>
-        Louis chưa thích bài viết nào.
+        Bạn chưa thích bài viết nào.
       </Text>
       <TouchableOpacity
         style={styles.exploreBtn}

@@ -361,7 +361,7 @@ const EditJobScreen = () => {
             )}
           </View>
 
-          <Text style={styles.footerNote}>* Cập nhật thông tin sẽ giúp AI Louis phân loại ứng viên chính xác hơn.</Text>
+          <Text style={styles.footerNote}>* Cập nhật thông tin sẽ giúp Louis AI phân loại ứng viên chính xác hơn.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

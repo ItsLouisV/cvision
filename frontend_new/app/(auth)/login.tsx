@@ -68,7 +68,7 @@ export default function LoginScreen() {
             <View style={[styles.logoCircle, { backgroundColor: accentColor }]}>
               <Ionicons name="sparkles" size={36} color="#fff" />
             </View>
-            <Text style={[styles.title, { color: theme.text }]}>Chào Louis,</Text>
+            <Text style={[styles.title, { color: theme.text }]}>Welcome!</Text>
             <Text style={styles.subtitle}>Đăng nhập để khám phá cơ hội mới cùng AI</Text>
           </View>
 

@@ -392,7 +392,7 @@ export default function CVAnalysisScreen() {
             <Ionicons name="document-text-outline" size={80} color="#D1D1D6" />
             <Text style={styles.emptyTitle}>Chưa có dữ liệu phân tích</Text>
             <Text style={styles.emptySub}>
-              Hãy tải lên CV của bạn, AI của Louis sẽ giúp bạn tìm ra điểm mạnh
+              Hãy tải lên CV của bạn, Louis AI sẽ giúp bạn tìm ra điểm mạnh
               nhất!
             </Text>
             <TouchableOpacity
