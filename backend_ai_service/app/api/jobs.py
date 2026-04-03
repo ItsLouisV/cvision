@@ -25,8 +25,8 @@ class JobCreateRequest(BaseModel):
     description: str
     requirements: Optional[str] = None
     location: Optional[str] = None
-    salary_from: Optional[Decimal] = 0.0
-    salary_to: Optional[Decimal] = 0.0
+    salary_from: Optional[float] = 0.0
+    salary_to: Optional[float] = 0.0
     salary_unit: Optional[str] = 'month'
     currency: Optional[str] = 'VND'
     expired_at: Optional[str] = None
@@ -114,7 +114,7 @@ async def create_job(request: JobCreateRequest, background_tasks: BackgroundTask
 
         # 2. Lưu Job vào Database
         job_data = {
-            **request.model_dump(),
+            **request.model_dump(mode='json'),
             "expired_at": final_expired_at.isoformat(),
             "is_active": True,
             "embedding": embedding
@@ -149,8 +149,8 @@ async def apply_job(job_id: str, user_id: str, cv_id: str, cover_letter: str = N
 
         # AI Phân tích Match Score
         prompt = JOB_MATCHING_PROMPT.format(
-            cv_analysis=json.dumps(cv.data['parsed_data']),
-            job_details=json.dumps(job.data)
+            cv_analysis=json.dumps(cv.data['parsed_data'], default=str),
+            job_details=json.dumps(job.data, default=str)
         )
         ai_analysis = await gemini.generate_json(prompt)
         final_score = ai_analysis.get('match_score', 0)

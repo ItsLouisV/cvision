@@ -105,7 +105,7 @@ export default function AnalysisHistoryDetailScreen() {
     return (
       <SafeAreaView style={[styles.container, styles.center, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={accentColor} />
-        <Text style={{ marginTop: 10, color: theme.text, opacity: 0.6 }}>Đang đọc dữ liệu AI...</Text>
+        <Text style={{ marginTop: 10, color: theme.text, opacity: 0.6 }}>Đang đọc dữ liệu...</Text>
       </SafeAreaView>
     );
   }
