@@ -40,7 +40,7 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
     // 3. Chuyển trang (dùng setTimeout một chút để Drawer kịp lướt đi)
     setTimeout(() => {
       router.push(path as any);
-    }, 10);
+    }, 0);
   };
 
   const dynamicStyles = {
@@ -80,7 +80,7 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
             style={[styles.actionBox, dynamicStyles.border, dynamicStyles.card]}
           >
             <Ionicons name="heart-outline" size={28} color={theme.text} />
-            <Text style={[styles.actionLabel, dynamicStyles.text]}>Yêu thích</Text>
+            {/* <Text style={[styles.actionLabel, dynamicStyles.text]}>Yêu thích</Text> */}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -88,7 +88,7 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
             style={[styles.actionBox, dynamicStyles.border, dynamicStyles.card]}
           >
             <Ionicons name="bookmark-outline" size={28} color={theme.text} />
-            <Text style={[styles.actionLabel, dynamicStyles.text]}>Đã lưu</Text>
+            {/* <Text style={[styles.actionLabel, dynamicStyles.text]}>Đã lưu</Text> */}
           </TouchableOpacity>
         </View>
 
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   },
   actionBox: {
     flex: 0.48,
-    height: 90, // Tăng chiều cao để chứa text
+    height: 60, // Tăng chiều cao để chứa text
     borderWidth: 1,
     borderRadius: 20,
     justifyContent: "center",

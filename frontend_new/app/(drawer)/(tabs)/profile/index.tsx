@@ -69,7 +69,7 @@ export default function SettingsScreen() {
   const Item = ({ icon, label, color, rightElement, onPress, isLast, subLabel }: any) => (
     <TouchableOpacity 
       activeOpacity={0.6} 
-      style={[styles.item, isLast && { paddingVertical: 6 }]} 
+      style={styles.item} 
       onPress={onPress}
       disabled={!onPress && !rightElement}
     >
@@ -125,24 +125,27 @@ export default function SettingsScreen() {
                 icon="business" 
                 label="Hồ sơ công ty" 
                 color="#007AFF" 
-                subLabel="Quản lý thông tin doanh nghiệp" 
                 onPress={() => router.push('/settings/company')} 
             />
-            <Item icon="newspaper" label="Quản lý tin đăng" color="#34C759" subLabel="Danh sách các bài tuyển dụng" />
-            <Item icon="people" label="Tìm kiếm ứng viên AI" color="#FF9500" subLabel="Gợi ý dựa trên Machine Learning" />
+            <Item icon="newspaper" label="Quản lý tin đăng" color="#34C759" />
+            <Item icon="people" label="Tìm kiếm ứng viên AI" color="#FF9500" />
             <Item icon="card" label="Gói dịch vụ & Hóa đơn" color="#5856D6" isLast />
           </>
         ) : (
           <>
-            <Item icon="document-attach" label="Hồ sơ & CV" color="#5856D6" subLabel="Đã tối ưu bởi AI" onPress={() => router.push('/analysis')} />
-            <Item icon="flash" label="AI Mock Interview" color="#AF52DE" subLabel="Luyện phỏng vấn với Gemini" />
+            <Item icon="document-attach" label="Hồ sơ & CV" color="#5856D6" onPress={() => router.push('/analysis')} />
+            <Item icon="flash" label="AI Mock Interview" color="#AF52DE" />
             <Item icon="briefcase" label="Việc làm đã ứng tuyển" color="#34C759" onPress={() => router.push('/activity')} />
-            <Item icon="analytics" label="Phân tích kỹ năng" color="#FF2D55" isLast subLabel="So sánh với thị trường" />
+            <Item icon="analytics" label="Phân tích kỹ năng" color="#FF2D55" isLast />
           </>
         )}
       </Section>
 
-      {/* 3. CHỨC NĂNG CHUNG: BẢO MẬT & HỆ THỐNG */}
+      {/* 3. CHỨC NĂNG CHUNG */}
+      <Section title="Trang cá nhân">
+        <Item icon="person-circle-sharp" label="Truy cập trang cá nhân" color="#FF2D55" isLast onPress={() => router.push(`/profile/${profile?.id}` as any)} />
+      </Section>
+
       <Section title="Bảo mật & Cá nhân hóa">
         <Item 
           icon="notifications" 
@@ -164,7 +167,7 @@ export default function SettingsScreen() {
           }
         />
         <Item icon="lock-closed" label="Đổi mật khẩu" color="#8E8E93" onPress={() => router.push('/(auth)/reset-password')} />
-        <Item icon="eye-off" label="Chế độ riêng tư" color="#5AC8FA" subLabel="Ẩn trạng thái với nhà tuyển dụng" />
+        <Item icon="eye-off" label="Chế độ riêng tư" color="#5AC8FA" />
         <Item icon="color-palette" label="Giao diện" color="#f458f7ff" isLast onPress={() => router.push('/settings/appearance')} />
       </Section>
 
@@ -191,17 +194,16 @@ export default function SettingsScreen() {
   );
 }
 
-// ... Styles giữ nguyên như cũ của bạn
 const styles = StyleSheet.create({
   section: { marginTop: 25, marginHorizontal: 16 },
   sectionHeader: { fontSize: 13, color: '#8E8E93', marginBottom: 8, marginLeft: 8, letterSpacing: 0.5 },
-  sectionBody: { borderRadius: 12, overflow: 'hidden' },
+  sectionBody: { borderRadius: 25, overflow: 'hidden' },
   item: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16 },
-  iconContainer: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  itemContent: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingRight: 16, marginLeft: 12 },
+  iconContainer: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  itemContent: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, paddingRight: 16, marginLeft: 12 },
   itemLabel: { fontSize: 17, fontWeight: '400' },
   subLabel: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
-  profileCard: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, padding: 16, borderRadius: 16, marginTop: 10, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+  profileCard: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, padding: 16, borderRadius: 25, marginTop: 10, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
   avatar: { width: 65, height: 65, borderRadius: 32.5 },
   profileInfo: { flex: 1, marginLeft: 15 },
   name: { fontSize: 20, fontWeight: '700' },

@@ -1,6 +1,7 @@
 import { Colors } from "@/constants/themes";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { supabase } from "@/lib/supabase";
+import { formatSalary } from "@/utils/formatters";
 import { PostService } from "@/utils/postInteractionService";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
@@ -149,74 +150,7 @@ const JobDetailScreen = () => {
     }
   };
 
-  // Helper Formatters - Đã cập nhật logic USD/VND/Hourly cho Louis
-  const formatSalary = (
-    from: number | null,
-    to: number | null,
-    currency: string = "VNĐ",
-    unit: string = "month",
-  ) => {
-    if (!from && !to) return "Thỏa thuận";
-    if (unit === "negotiable") return "Thỏa thuận";
-
-    const isVND =
-      currency.toUpperCase() === "VNĐ" || currency.toUpperCase() === "VND";
-    const isUSD = currency.toUpperCase() === "USD";
-    const isHourly = unit.toLowerCase() === "hour";
-
-    let fStr = "";
-    let tStr = "";
-
-    if (isVND) {
-      if (isHourly) {
-        // Tiền lương theo giờ (VND): Giữ nguyên số gốc, thêm dấu ngăn cách phần nghìn.
-        fStr = from ? from.toLocaleString() : "?";
-        tStr = to ? to.toLocaleString() : "?";
-      } else {
-        // Tiền lương theo tháng/năm (VND): Chia cho 1,000,000 để lấy đơn vị "triệu"
-        fStr = from ? (from / 1000000).toFixed(0) : "?";
-        tStr = to ? (to / 1000000).toFixed(0) : "?";
-      }
-    } else {
-      // Ngoại tệ: Luôn giữ nguyên số gốc và thêm dấu phẩy ngăn cách phần nghìn
-      fStr = from
-        ? from.toLocaleString("en-US", {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 1,
-          })
-        : "?";
-      tStr = to
-        ? to.toLocaleString("en-US", {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 1,
-          })
-        : "?";
-    }
-
-    // Nối chuỗi tiền tệ (Nếu là VND thì mượn chữ 'triệu', USD thì giữ nguyên số gốc)
-    let salaryText = "";
-    if (isVND) {
-      salaryText = isHourly
-        ? `${fStr} - ${tStr} VNĐ`
-        : `${fStr} - ${tStr} triệu`;
-    } else if (isUSD) {
-      salaryText = `$${fStr} - $${tStr}`;
-    } else {
-      salaryText = `${fStr} - ${tStr} ${currency}`;
-    }
-
-    // Nối Đơn vị tính
-    const unitMap: any = {
-      hour: "/ giờ",
-      month: "/ tháng",
-      year: "/ năm",
-      day: "/ ngày",
-      project: "/ dự án",
-    };
-
-    const unitText = unitMap[unit] || "";
-    return `${salaryText} ${unitText}`.trim();
-  };
+  // Helper Formatters
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Không xác định";

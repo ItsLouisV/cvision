@@ -50,7 +50,12 @@ import { Colors } from "@/constants/themes";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { supabase } from "@/lib/supabase";
 import { PostService } from "@/utils/postInteractionService";
+import { FollowService } from "@/utils/followService";
+import { formatSalary, formatTime } from "@/utils/formatters";
+import { PostMenu } from "@/utils/PostMenu";
+import { AvatarMenu } from "@/utils/AvatarMenu";
 import * as Linking from "expo-linking";
+import { PostCard, AvatarPosition } from "@/components/PostCard";
 
 const { width } = Dimensions.get("window");
 
@@ -58,297 +63,6 @@ interface FeedViewProps {
   onPressMenu?: () => void;
   onPressSearch?: () => void;
 }
-
-const JOB_TYPE_MAP: Record<string, string> = {
-  "full-time": "Toàn thời gian",
-  "part-time": "Bán thời gian",
-  contract: "Hợp đồng",
-  internship: "Thực tập",
-  freelance: "Freelance",
-  remote: "Remote",
-};
-
-const MAX_CONTENT_LINES = 5;
-
-const PressableOpacity = ({
-  children,
-  style,
-  activeOpacity = 0.7,
-  ...props
-}: any) => {
-  return (
-    <RNGHPressable
-      {...props}
-      style={(state: any) => [
-        typeof style === "function" ? style(state) : style,
-        state.pressed && { opacity: activeOpacity },
-      ]}
-    >
-      {children}
-    </RNGHPressable>
-  );
-};
-
-// ─────────────────────────────────────────────────────
-// PostCard – extracted component for a single post
-// ─────────────────────────────────────────────────────
-interface PostCardProps {
-  post: any;
-  isDark: boolean;
-  theme: any;
-  isLiked: boolean;
-  isBookmarked: boolean;
-  onToggleLike: () => void;
-  onToggleBookmark: () => void;
-  onShare: () => void;
-  onPressPost: () => void;
-  onPressMenu: () => void;
-}
-
-const PostCard = React.memo(
-  ({
-    post,
-    isDark,
-    theme,
-    isLiked,
-    isBookmarked,
-    onToggleLike,
-    onToggleBookmark,
-    onShare,
-    onPressPost,
-    onPressMenu,
-  }: PostCardProps) => {
-    const [isExpanded, setIsExpanded] = useState(false);
-    const [isClamped, setIsClamped] = useState(false);
-
-    const handleTextLayout = useCallback(
-      (e: NativeSyntheticEvent<TextLayoutEventData>) => {
-        if (e.nativeEvent.lines.length > MAX_CONTENT_LINES) {
-          setIsClamped(true);
-        }
-      },
-      [],
-    );
-
-    const toggleExpand = () => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setIsExpanded((prev) => !prev);
-    };
-
-    return (
-      <RNGHPressable
-        style={({ pressed }) => [
-          styles.postWrapper,
-          pressed && { opacity: 0.92 },
-        ]}
-        onPress={onPressPost}
-      >
-        {/* LEFT COLUMN – AVATAR */}
-        <View style={styles.leftColumn}>
-          <View style={styles.avatarContainer}>
-            <Image source={{ uri: post.userAvatar }} style={styles.avatar} />
-            {post.is_verified && (
-              <View
-                style={[
-                  styles.verifiedIcon,
-                  { backgroundColor: isDark ? "#1C1C1E" : "#FFF" },
-                ]}
-              >
-                <Verified
-                  size={14}
-                  color="#8e44ad"
-                  fill={isDark ? "#1C1C1E" : "#FFF"}
-                />
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* RIGHT COLUMN – CONTENT */}
-        <View
-          style={[
-            styles.rightColumn,
-            { borderBottomColor: isDark ? "#2C2C2E" : "#ebedf0" },
-          ]}
-        >
-          {/* USER ROW: name · company badge · time · ellipsis */}
-          <View style={styles.userRow}>
-            <View style={styles.userInfo}>
-              <Text
-                style={[styles.userName, { color: theme.text }]}
-                numberOfLines={1}
-              >
-                {post.userName}
-              </Text>
-              {post.companyName ? (
-                <View
-                  style={[
-                    styles.companyBadge,
-                    {
-                      backgroundColor: isDark
-                        ? "rgba(142,68,173,0.15)"
-                        : "rgba(142,68,173,0.08)",
-                    },
-                  ]}
-                >
-                  <Text style={styles.companyBadgeText} numberOfLines={1}>
-                    {post.companyName}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-            <View style={styles.userRowRight}>
-              <Text
-                style={[styles.timeText, { color: isDark ? "#666" : "#999" }]}
-              >
-                {post.time}
-              </Text>
-              <PressableOpacity
-                onPress={onPressMenu}
-                activeOpacity={0.6}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={{ padding: 4, marginLeft: 4 }}
-              >
-                <Ellipsis size={18} color={isDark ? "#666" : "#999"} />
-              </PressableOpacity>
-            </View>
-          </View>
-
-          {/* JOB TITLE */}
-          <Text style={[styles.jobTitle, { color: theme.text }]}>
-            {post.title}
-          </Text>
-
-          {/* CONTENT – clamped text */}
-          <Text
-            style={[styles.postContent, { color: theme.text }]}
-            numberOfLines={isExpanded ? undefined : MAX_CONTENT_LINES}
-            onTextLayout={handleTextLayout}
-          >
-            {post.content}
-          </Text>
-          {isClamped && (
-            <PressableOpacity onPress={toggleExpand} activeOpacity={0.7}>
-              <Text style={styles.seeMoreText}>
-                {isExpanded ? "Thu gọn" : "Xem thêm"}
-              </Text>
-            </PressableOpacity>
-          )}
-
-          {/* JOB META */}
-          <View style={styles.jobMetaRow}>
-            <View
-              style={[
-                styles.metaChip,
-                {
-                  backgroundColor: isDark
-                    ? "rgba(142,68,173,0.12)"
-                    : "rgba(142,68,173,0.06)",
-                },
-              ]}
-            >
-              <Text style={styles.metaChipText}>
-                {JOB_TYPE_MAP[post.type] || post.type}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.metaChip,
-                {
-                  backgroundColor: isDark
-                    ? "rgba(142,68,173,0.12)"
-                    : "rgba(142,68,173,0.06)",
-                },
-              ]}
-            >
-              <CircleDollarSign size={13} color="#8e44ad" />
-              <Text style={styles.metaChipText}>{post.salary}</Text>
-            </View>
-            <View
-              style={[
-                styles.metaChip,
-                {
-                  backgroundColor: isDark
-                    ? "rgba(142,68,173,0.12)"
-                    : "rgba(142,68,173,0.06)",
-                },
-              ]}
-            >
-              <MapPin size={13} color="#8e44ad" />
-              <Text style={styles.metaChipText}>{post.location}</Text>
-            </View>
-          </View>
-
-          {/* ACTIONS */}
-          <View style={styles.actionContainer}>
-            <View style={styles.actionRow}>
-              <PressableOpacity style={styles.actionBtn} onPress={onToggleLike}>
-                <Heart
-                  size={20}
-                  color={isLiked ? "#e74c3c" : isDark ? "#888" : "#666"}
-                  fill={isLiked ? "#e74c3c" : "transparent"}
-                />
-                {post.likes > 0 && (
-                  <Text
-                    style={[
-                      styles.actionCount,
-                      { color: isLiked ? "#e74c3c" : isDark ? "#888" : "#666" },
-                    ]}
-                  >
-                    {post.likes}
-                  </Text>
-                )}
-              </PressableOpacity>
-
-              <PressableOpacity
-                style={styles.actionBtn}
-                onPress={() =>
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                }
-              >
-                <MessageCircle size={19} color={isDark ? "#888" : "#666"} />
-                {post.replies > 0 && (
-                  <Text
-                    style={[
-                      styles.actionCount,
-                      { color: isDark ? "#888" : "#666" },
-                    ]}
-                  >
-                    {post.replies}
-                  </Text>
-                )}
-              </PressableOpacity>
-
-              <PressableOpacity
-                style={styles.actionBtn}
-                onPress={() =>
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                }
-              >
-                <RefreshCw size={19} color={isDark ? "#888" : "#666"} />
-              </PressableOpacity>
-
-              <PressableOpacity style={styles.actionBtn} onPress={onShare}>
-                <Send size={19} color={isDark ? "#888" : "#666"} />
-              </PressableOpacity>
-            </View>
-
-            <PressableOpacity
-              style={styles.actionBtnRight}
-              onPress={onToggleBookmark}
-            >
-              <Bookmark
-                size={20}
-                color={isBookmarked ? "#FFD700" : isDark ? "#888" : "#666"}
-                fill={isBookmarked ? "#FFD700" : "transparent"}
-              />
-            </PressableOpacity>
-          </View>
-        </View>
-      </RNGHPressable>
-    );
-  },
-);
 
 // ─────────────────────────────────────────────────────
 // FeedView – main component
@@ -367,11 +81,17 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
   const [bookmarkedPosts, setBookmarkedPosts] = useState<{
     [key: string]: boolean;
   }>({});
+  const [followingUsers, setFollowingUsers] = useState<{ [key: string]: boolean }>({});
   const [hasUnread, setHasUnread] = useState(false);
 
   // Popup menu state
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPost, setMenuPost] = useState<any>(null);
+
+  // Avatar menu state
+  const [avatarMenuVisible, setAvatarMenuVisible] = useState(false);
+  const [avatarMenuPost, setAvatarMenuPost] = useState<any>(null);
+  const [avatarMenuPosition, setAvatarMenuPosition] = useState<AvatarPosition | null>(null);
 
   // Upload progress bar animation
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -414,7 +134,7 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
           `
         *,
         employers (company_name, is_verified),
-        user_profiles (full_name, avatar_url),
+        user_profiles (id, full_name, avatar_url),
         total_likes:loved_posts(count),
         total_comments:comments(count)
       `,
@@ -428,12 +148,15 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
         // 🎯 Bước 2: Khởi tạo Map mới hoàn toàn
         const userLikedMap: Record<string, boolean> = {};
         const userSavedMap: Record<string, boolean> = {};
+        const userFollowedMap: Record<string, boolean> = {};
 
         // Chỉ lấy lượt like và save nếu có user đăng nhập
         if (user) {
           const jobIds = jobData.map((j: any) => j.id);
+          const userIds = jobData.map((j: any) => j.user_profiles?.id || j.user_id).filter(Boolean);
+
           if (jobIds.length > 0) {
-            const [likesRes, savesRes] = await Promise.all([
+            const [likesRes, savesRes, followsRes] = await Promise.all([
               supabase
                 .from("loved_posts")
                 .select("post_id")
@@ -444,6 +167,11 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
                 .select("post_id")
                 .eq("user_id", currentUserId)
                 .in("post_id", jobIds),
+              userIds.length > 0 ? supabase
+                .from("followers")
+                .select("following_id")
+                .eq("follower_id", currentUserId)
+                .in("following_id", userIds) : Promise.resolve({ data: [] }),
             ]);
             likesRes.data?.forEach((like: any) => {
               userLikedMap[like.post_id] = true;
@@ -451,15 +179,16 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
             savesRes.data?.forEach((save: any) => {
               userSavedMap[save.post_id] = true;
             });
+            followsRes.data?.forEach((follow: any) => {
+              userFollowedMap[follow.following_id] = true;
+            });
           }
         }
 
         const formattedPosts = jobData.map((job: any) => {
-          const isLikedByMe = !!userLikedMap[job.id];
-          const isSavedByMe = !!userSavedMap[job.id];
-
           return {
             id: job.id,
+            userId: job.user_profiles?.id || job.user_id,
             userName:
               job.user_profiles?.full_name || job.company_name || "Người dùng",
             userAvatar:
@@ -470,7 +199,7 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
             title: job.title,
             content: job.description,
             require: job.required_experience,
-            time: formatTime(job.created_at),
+            time: formatTime(job.created_at, { short: true }),
             salary: formatSalary(
               job.salary_from,
               job.salary_to,
@@ -490,6 +219,7 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
         setPosts(formattedPosts);
         setLikedPosts(userLikedMap);
         setBookmarkedPosts(userSavedMap);
+        setFollowingUsers(userFollowedMap);
       }
     } catch (error) {
       console.error("Fetch jobs error:", error);
@@ -497,87 +227,6 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
       setIsLoading(false);
       setRefreshing(false);
     }
-  };
-
-  // ── HELPERS ──
-  const formatSalary = (
-    from: number | null,
-    to: number | null,
-    currency: string = "VNĐ",
-    unit: string = "month",
-  ) => {
-    if (!from && !to) return "Thỏa thuận";
-    if (unit === "negotiable") return "Thỏa thuận";
-
-    const isVND =
-      currency.toUpperCase() === "VNĐ" || currency.toUpperCase() === "VND";
-    const isUSD = currency.toUpperCase() === "USD";
-    const isHourly = unit.toLowerCase() === "hour";
-
-    let fStr = "";
-    let tStr = "";
-
-    if (isVND) {
-      if (isHourly) {
-        // Tiền lương theo giờ (VND): Giữ nguyên số gốc, thêm dấu ngăn cách phần nghìn.
-        fStr = from ? from.toLocaleString() : "?";
-        tStr = to ? to.toLocaleString() : "?";
-      } else {
-        // Tiền lương theo tháng/năm (VND): Chia cho 1,000,000 để lấy đơn vị "triệu"
-        fStr = from ? (from / 1000000).toFixed(0) : "?";
-        tStr = to ? (to / 1000000).toFixed(0) : "?";
-      }
-    } else {
-      // Ngoại tệ: Luôn giữ nguyên số gốc và thêm dấu phẩy ngăn cách phần nghìn
-      fStr = from
-        ? from.toLocaleString("en-US", {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 1,
-          })
-        : "?";
-      tStr = to
-        ? to.toLocaleString("en-US", {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 1,
-          })
-        : "?";
-    }
-
-    // Nối chuỗi tiền tệ (Nếu là VND thì mượn chữ 'triệu', USD thì giữ nguyên số gốc)
-    let salaryText = "";
-    if (isVND) {
-      salaryText = isHourly
-        ? `${fStr} - ${tStr} VNĐ`
-        : `${fStr} - ${tStr} triệu`;
-    } else if (isUSD) {
-      salaryText = `$${fStr} - $${tStr}`;
-    } else {
-      salaryText = `${fStr} - ${tStr} ${currency}`;
-    }
-
-    // Nối Đơn vị tính
-    const unitMap: any = {
-      hour: "/ giờ",
-      month: "/ tháng",
-      year: "/ năm",
-      day: "/ ngày",
-      project: "/ dự án",
-    };
-
-    const unitText = unitMap[unit] || "";
-    return `${salaryText} ${unitText}`.trim();
-  };
-
-  const formatTime = (dateString: string) => {
-    const now = new Date();
-    const past = new Date(dateString);
-    const diffInMin = Math.floor((now.getTime() - past.getTime()) / 60000);
-
-    if (diffInMin < 1) return "vừa xong";
-    if (diffInMin < 60) return `${diffInMin}p`;
-    const diffInHours = Math.floor(diffInMin / 60);
-    if (diffInHours < 24) return `${diffInHours}h`;
-    return `${Math.floor(diffInHours / 24)} ngày`;
   };
 
   // ── LIFECYCLE ──
@@ -796,6 +445,66 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
     }
   };
 
+  // ── AVATAR MENU HANDLERS ──
+  const openAvatarMenu = (post: any, pos: AvatarPosition) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setAvatarMenuPost(post);
+    setAvatarMenuPosition(pos);
+    setAvatarMenuVisible(true);
+  };
+
+  const closeAvatarMenu = () => {
+    setAvatarMenuVisible(false);
+    setAvatarMenuPost(null);
+  };
+
+  const handleAvatarMenuAction = async (action: string) => {
+    closeAvatarMenu();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (!avatarMenuPost) return;
+    const targetUserId = avatarMenuPost.userId;
+
+    switch (action) {
+      case "toggle_follow":
+        if (!targetUserId) {
+          Toast.show({ type: "error", text1: "Không thể theo dõi người này" });
+          return;
+        }
+
+        const isCurrentlyFollowing = !!followingUsers[targetUserId];
+        // Optimistic update
+        setFollowingUsers(prev => ({ ...prev, [targetUserId]: !isCurrentlyFollowing }));
+
+        const result = await FollowService.toggleFollow(targetUserId);
+        
+        if (result.error) {
+          // Hoàn tác
+          setFollowingUsers(prev => ({ ...prev, [targetUserId]: isCurrentlyFollowing }));
+          Toast.show({
+            type: "error",
+            text1: "Lỗi rồi bạn ơi",
+            text2: result.error,
+          });
+        } else {
+          Toast.show({
+            type: "success",
+            text1: isCurrentlyFollowing ? "Đã bỏ theo dõi" : "Đã theo dõi",
+            visibilityTime: 1500,
+          });
+        }
+        break;
+      case "visit_profile":
+        if (!targetUserId) {
+          Toast.show({ type: "error", text1: "Không tìm thấy hồ sơ người này" });
+          return;
+        }
+        // @ts-ignore: Dynamic route
+        router.push(`/profile/${targetUserId}`); 
+        break;
+    }
+  };
+
   // ── RENDER ──
   return (
     <SafeAreaView
@@ -908,127 +617,32 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
               onShare={() => onSharePost(post.companyName || "", post.title)}
               onPressPost={() => router.push(`/jobs/${post.id}`)}
               onPressMenu={() => openPostMenu(post)}
+              onPressAvatar={(pos) => openAvatarMenu(post, pos)}
             />
           ))
         )}
       </ScrollView>
 
-      {/* ── POPUP MENU MODAL ── */}
-      <Modal
+      {/* ── POPUP MENUS ── */}
+      <PostMenu
         visible={menuVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={closeMenu}
-        statusBarTranslucent
-      >
-        <Pressable style={styles.modalOverlay} onPress={closeMenu}>
-          <Pressable
-            style={[
-              styles.menuSheet,
-              { backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF" },
-            ]}
-            onPress={() => {}}
-          >
-            {/* Drag handle */}
-            <View style={styles.menuHandle} />
+        onClose={closeMenu}
+        post={menuPost}
+        theme={theme}
+        isDark={isDark}
+        onAction={handleMenuAction}
+      />
 
-            {menuPost && (
-              <View style={styles.menuPostPreview}>
-                <Image
-                  source={{ uri: menuPost.userAvatar }}
-                  style={styles.menuAvatar}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={[styles.menuPostName, { color: theme.text }]}
-                    numberOfLines={1}
-                  >
-                    {menuPost.userName}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.menuPostTitle,
-                      { color: isDark ? "#aaa" : "#666" },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {menuPost.title}
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            <View
-              style={[
-                styles.menuDivider,
-                { backgroundColor: isDark ? "#333" : "#eee" },
-              ]}
-            />
-
-            {[
-              {
-                key: "share",
-                icon: <Share2 size={20} color={theme.text} />,
-                label: "Chia sẻ bài viết",
-              },
-              {
-                key: "copy_link",
-                icon: <Link2 size={20} color={theme.text} />,
-                label: "Sao chép liên kết",
-              },
-              {
-                key: "hide",
-                icon: <EyeOff size={20} color={theme.text} />,
-                label: "Ẩn bài viết này",
-              },
-              {
-                key: "report",
-                icon: <Flag size={20} color="#e74c3c" />,
-                label: "Báo cáo",
-                isDestructive: true,
-              },
-            ].map((item, index) => (
-              <TouchableOpacity
-                key={item.key}
-                style={[
-                  styles.menuItem,
-                  index === 3 && { borderBottomWidth: 0 },
-                  { borderBottomColor: isDark ? "#2C2C2E" : "#f0f0f0" },
-                ]}
-                onPress={() => handleMenuAction(item.key)}
-                activeOpacity={0.7}
-              >
-                {item.icon}
-                <Text
-                  style={[
-                    styles.menuItemText,
-                    {
-                      color: (item as any).isDestructive
-                        ? "#e74c3c"
-                        : theme.text,
-                    },
-                  ]}
-                >
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-
-            <TouchableOpacity
-              style={[
-                styles.menuCancelBtn,
-                { backgroundColor: isDark ? "#2C2C2E" : "#F2F2F7" },
-              ]}
-              onPress={closeMenu}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.menuCancelText, { color: theme.text }]}>
-                Hủy
-              </Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <AvatarMenu
+        visible={avatarMenuVisible}
+        onClose={closeAvatarMenu}
+        post={avatarMenuPost}
+        theme={theme}
+        isDark={isDark}
+        isFollowing={avatarMenuPost && followingUsers[avatarMenuPost.userId]}
+        onAction={handleAvatarMenuAction}
+        position={avatarMenuPosition}
+      />
     </SafeAreaView>
   );
 };
@@ -1060,126 +674,6 @@ const styles = StyleSheet.create({
     borderColor: "#FFF",
   },
 
-  // ── Post Card ──
-  postWrapper: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    marginTop: 14,
-  },
-  leftColumn: { alignItems: "center", width: 45 },
-  avatarContainer: { width: 42, height: 42, position: "relative" },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#eee",
-  },
-  verifiedIcon: {
-    position: "absolute",
-    bottom: -3,
-    right: -3,
-    borderRadius: 10,
-    padding: 1,
-  },
-  rightColumn: {
-    flex: 1,
-    marginLeft: 12,
-    paddingBottom: 16,
-    borderBottomWidth: 0.5,
-  },
-
-  // ── User row ──
-  userRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  userInfo: {
-    flex: 1,
-    marginRight: 8,
-  },
-  userName: { fontWeight: "800", fontSize: 15 },
-  companyBadge: {
-    alignSelf: "flex-start",
-    marginTop: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  companyBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#8e44ad",
-  },
-  userRowRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexShrink: 0,
-  },
-  timeText: { fontSize: 13, fontWeight: "400" },
-
-  // ── Job content ──
-  jobTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    marginTop: 8,
-  },
-  postContent: {
-    fontSize: 14,
-    marginTop: 5,
-    lineHeight: 20,
-    opacity: 0.8,
-  },
-  seeMoreText: {
-    color: "#8e44ad",
-    fontWeight: "600",
-    fontSize: 13.5,
-    marginTop: 3,
-  },
-
-  // ── Meta chips ──
-  jobMetaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 10,
-  },
-  metaChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  metaChipText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#8e44ad",
-  },
-
-  // ── Actions ──
-  actionContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 12,
-    marginLeft: -4,
-  },
-  actionRow: { flexDirection: "row", alignItems: "center" },
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: 20,
-    padding: 4,
-  },
-  actionBtnRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 4,
-  },
-  actionCount: { fontSize: 13, marginLeft: 5, fontWeight: "500" },
-
   // ── Uploading ──
   uploadingBanner: {
     flexDirection: "row",
@@ -1187,58 +681,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  // ── Popup Menu ──
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "flex-end",
-  },
-  menuSheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 16,
-    paddingBottom: Platform.OS === "ios" ? 34 : 20,
-    paddingTop: 10,
-  },
-  menuHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#999",
-    alignSelf: "center",
-    marginBottom: 14,
-    opacity: 0.4,
-  },
-  menuPostPreview: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    gap: 10,
-  },
-  menuAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#eee",
-  },
-  menuPostName: { fontWeight: "700", fontSize: 14 },
-  menuPostTitle: { fontSize: 12, marginTop: 1 },
-  menuDivider: { height: 0.5, marginBottom: 4 },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    gap: 14,
-    borderBottomWidth: 0.5,
-  },
-  menuItemText: { fontSize: 15, fontWeight: "500" },
-  menuCancelBtn: {
-    marginTop: 10,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  menuCancelText: { fontSize: 16, fontWeight: "700" },
 });
 
 export default FeedView;

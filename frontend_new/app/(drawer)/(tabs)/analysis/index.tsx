@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { formatSalary } from "@/utils/formatters";
 import { FileClock, ShieldCheck } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
@@ -137,35 +138,6 @@ export default function CVAnalysisScreen() {
       </View>
     ));
   };
-
-  const formatSalary = (from: number | null, to: number | null, currency: string = "VNĐ", unit: string = "month") => {
-  if (!from && !to) return "Thỏa thuận";
-  if (unit === "negotiable") return "Thỏa thuận";
-
-  const currencyUpper = currency?.toUpperCase() || "VND";
-  const isVND = currencyUpper === "VNĐ" || currencyUpper === "VND";
-
-  // Logic định dạng số:
-  // Nếu là VND: Chia cho 1,000,000 để lấy đơn vị "triệu"
-  // Nếu là USD/ngoại tệ khác: Dùng toLocaleString() để hiển thị dấu phẩy phân cách (VD: 120,000)
-  let fStr = from ? (isVND ? (from / 1000000).toFixed(0) : from.toLocaleString()) : "?";
-  let tStr = to ? (isVND ? (to / 1000000).toFixed(0) : to.toLocaleString()) : "?";
-  
-  // Nối chuỗi tiền tệ
-  let salaryText = `${fStr} - ${tStr} ${isVND ? "triệu" : currencyUpper}`;
-
-  // Định dạng đơn vị thời gian
-  const unitMap: any = {
-    month: "/ tháng",
-    year: "/ năm",
-    day: "/ ngày",
-    project: "/ dự án"
-  };
-
-  const unitText = unitMap[unit] || "";
-  
-  return `${salaryText} ${unitText}`.trim();
-};
 
   const JobCard = ({ item }: { item: Job }) => (
     <TouchableOpacity

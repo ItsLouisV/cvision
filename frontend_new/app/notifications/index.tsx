@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/themes';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { supabase } from '@/lib/supabase';
+import { formatTime } from '@/utils/formatters';
 
 const PAGE_SIZE = 15; // Mỗi lần chỉ tải 15 tin để nhẹ máy
 
@@ -181,15 +182,7 @@ export default function NotificationsScreen() {
   }
 };
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    if (diff < 60000) return 'Vừa xong';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)} phút trước`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)} giờ trước`;
-    return `${date.getDate()}/${date.getMonth() + 1}`;
-  };
+  // formatTime ử dụng từ utils/formatters
 
   const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity 
