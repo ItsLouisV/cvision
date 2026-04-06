@@ -41,7 +41,7 @@ import {
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { Pressable as RNGHPressable } from "react-native-gesture-handler";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
@@ -70,6 +70,8 @@ const JOB_TYPE_MAP: Record<string, string> = {
 
 const MAX_CONTENT_LINES = 5;
 
+
+
 const PressableOpacity = ({
   children,
   style,
@@ -77,15 +79,16 @@ const PressableOpacity = ({
   ...props
 }: any) => {
   return (
-    <RNGHPressable
+    <Pressable
       {...props}
-      style={(state: any) => [
-        typeof style === "function" ? style(state) : style,
-        state.pressed && { opacity: activeOpacity },
+      android_ripple={{ color: 'rgba(142,68,173,0.15)', borderless: true, radius: 22 }}
+      style={({ pressed }) => [
+        typeof style === "function" ? style({ pressed }) : style,
+        pressed && Platform.OS === 'ios' && { opacity: activeOpacity },
       ]}
     >
       {children}
-    </RNGHPressable>
+    </Pressable>
   );
 };
 
@@ -136,15 +139,15 @@ const PostCard = React.memo(
     };
 
     return (
-      <RNGHPressable
-        style={({ pressed }) => [
-          styles.postWrapper,
-          pressed && { opacity: 0.92 },
-        ]}
-        onPress={onPressPost}
-      >
-        {/* LEFT COLUMN – AVATAR */}
-        <View style={styles.leftColumn}>
+      <View style={styles.postWrapper}>
+        {/* LEFT COLUMN – AVATAR (tappable → navigate to post) */}
+        <Pressable
+          onPress={onPressPost}
+          style={({ pressed }) => [
+            styles.leftColumn,
+            pressed && { opacity: 0.7 },
+          ]}
+        >
           <View style={styles.avatarContainer}>
             <Image source={{ uri: post.userAvatar }} style={styles.avatar} />
             {post.is_verified && (
@@ -162,7 +165,7 @@ const PostCard = React.memo(
               </View>
             )}
           </View>
-        </View>
+        </Pressable>
 
         {/* RIGHT COLUMN – CONTENT */}
         <View
@@ -173,7 +176,14 @@ const PostCard = React.memo(
         >
           {/* USER ROW: name · company badge · time · ellipsis */}
           <View style={styles.userRow}>
-            <View style={styles.userInfo}>
+            {/* Tapping name/company → navigate to post */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.userInfo,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={onPressPost}
+            >
               <Text
                 style={[styles.userName, { color: theme.text }]}
                 numberOfLines={1}
@@ -196,7 +206,8 @@ const PostCard = React.memo(
                   </Text>
                 </View>
               ) : null}
-            </View>
+            </Pressable>
+
             <View style={styles.userRowRight}>
               <Text
                 style={[styles.timeText, { color: isDark ? "#666" : "#999" }]}
@@ -206,27 +217,33 @@ const PostCard = React.memo(
               <PressableOpacity
                 onPress={onPressMenu}
                 activeOpacity={0.6}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={{ padding: 4, marginLeft: 4 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ padding: 6, marginLeft: 4 }}
               >
                 <Ellipsis size={18} color={isDark ? "#666" : "#999"} />
               </PressableOpacity>
             </View>
           </View>
 
-          {/* JOB TITLE */}
-          <Text style={[styles.jobTitle, { color: theme.text }]}>
-            {post.title}
-          </Text>
-
-          {/* CONTENT – clamped text */}
-          <Text
-            style={[styles.postContent, { color: theme.text }]}
-            numberOfLines={isExpanded ? undefined : MAX_CONTENT_LINES}
-            onTextLayout={handleTextLayout}
+          {/* JOB TITLE – tappable → navigate */}
+          <Pressable
+            onPress={onPressPost}
+            style={({ pressed }) => pressed && { opacity: 0.7 }}
           >
-            {post.content}
-          </Text>
+            <Text style={[styles.jobTitle, { color: theme.text }]}>
+              {post.title}
+            </Text>
+
+            {/* CONTENT – clamped text */}
+            <Text
+              style={[styles.postContent, { color: theme.text }]}
+              numberOfLines={isExpanded ? undefined : MAX_CONTENT_LINES}
+              onTextLayout={handleTextLayout}
+            >
+              {post.content}
+            </Text>
+          </Pressable>
+
           {isClamped && (
             <PressableOpacity onPress={toggleExpand} activeOpacity={0.7}>
               <Text style={styles.seeMoreText}>
@@ -279,10 +296,14 @@ const PostCard = React.memo(
             </View>
           </View>
 
-          {/* ACTIONS */}
+          {/* ACTIONS – độc lập, không nằm trong Pressable cha */}
           <View style={styles.actionContainer}>
             <View style={styles.actionRow}>
-              <PressableOpacity style={styles.actionBtn} onPress={onToggleLike}>
+              <PressableOpacity
+                style={styles.actionBtn}
+                onPress={onToggleLike}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <Heart
                   size={20}
                   color={isLiked ? "#e74c3c" : isDark ? "#888" : "#666"}
@@ -305,6 +326,7 @@ const PostCard = React.memo(
                 onPress={() =>
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                 }
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <MessageCircle size={19} color={isDark ? "#888" : "#666"} />
                 {post.replies > 0 && (
@@ -324,11 +346,16 @@ const PostCard = React.memo(
                 onPress={() =>
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                 }
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <RefreshCw size={19} color={isDark ? "#888" : "#666"} />
               </PressableOpacity>
 
-              <PressableOpacity style={styles.actionBtn} onPress={onShare}>
+              <PressableOpacity
+                style={styles.actionBtn}
+                onPress={onShare}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <Send size={19} color={isDark ? "#888" : "#666"} />
               </PressableOpacity>
             </View>
@@ -336,6 +363,7 @@ const PostCard = React.memo(
             <PressableOpacity
               style={styles.actionBtnRight}
               onPress={onToggleBookmark}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Bookmark
                 size={20}
@@ -345,7 +373,7 @@ const PostCard = React.memo(
             </PressableOpacity>
           </View>
         </View>
-      </RNGHPressable>
+      </View>
     );
   },
 );

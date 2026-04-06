@@ -107,7 +107,7 @@ const CreateJobPost = () => {
           Alert.alert(
             "Quyền truy cập bị hạn chế",
             "Chỉ Nhà tuyển dụng mới có thể sử dụng tính năng này.",
-            [{ text: "Đã hiểu", onPress: () => router.back() }],
+            [{ text: "Đã hiểu", onPress: () => setTimeout(() => router.dismiss(), 100) }],
           );
           return;
         }
@@ -125,10 +125,9 @@ const CreateJobPost = () => {
             [
               {
                 text: "Cập nhật",
-
                 onPress: () => {
-                  router.back();
-                  router.push("/settings/company/edit");
+                  setTimeout(() => router.dismiss(), 100);
+                  setTimeout(() => router.push("/settings/company/edit"), 400);
                 }
               },
             ],
@@ -198,7 +197,8 @@ const CreateJobPost = () => {
         salary_unit: salaryUnit,
         currency: currency,
         expired_at: expiredAt.toISOString(),
-        category: category,
+        // Chuyển empty string thành null tránh lỗi DB constraint
+        category: category.trim() || null,
         job_type: selectedJobType,
       };
 
@@ -206,10 +206,12 @@ const CreateJobPost = () => {
       
       // Emit event báo hiệu quá trình bắt đầu tải lên và đóng modal
       DeviceEventEmitter.emit('create_post_start');
-      router.back();
+      router.dismiss();
 
       // Gọi API ở background (không await để chặn modal)
+      console.log("Calling API:", `${ENV.API_URL}/jobs/create`);
       axios.post(`${ENV.API_URL}/jobs/create`, payload).then((response) => {
+        console.log("API Response:", response.status, response.data);
         if (response.data.success) {
           Toast.show({
             type: 'success',
@@ -218,14 +220,21 @@ const CreateJobPost = () => {
             visibilityTime: 2500,
             autoHide: true,
           });
-          // Emit event báo hiệu tải lên thành công để trang chủ tự load lại
           DeviceEventEmitter.emit('create_post_success');
+        } else {
+          console.warn("API returned success=false:", response.data);
+          DeviceEventEmitter.emit('create_post_error', "Máy chủ không xác nhận thành công.");
         }
       }).catch((error) => {
+        console.error("API Error status:", error.response?.status);
+        console.error("API Error data:", error.response?.data);
+        console.error("API Error message:", error.message);
         if (error.response?.status === 422) {
           DeviceEventEmitter.emit('create_post_error', "Dữ liệu gửi lên không đúng định dạng AI yêu cầu.");
+        } else if (!error.response) {
+          DeviceEventEmitter.emit('create_post_error', `Không kết nối được máy chủ AI (${ENV.API_URL}). Kiểm tra IP và server.`);
         } else {
-          DeviceEventEmitter.emit('create_post_error', "Không thể kết nối tới máy chủ AI.");
+          DeviceEventEmitter.emit('create_post_error', `Lỗi máy chủ: ${error.response?.status} - ${error.response?.data?.detail || error.message}`);
         }
       });
 
@@ -274,7 +283,7 @@ const CreateJobPost = () => {
       {/* HEADER */}
       <View style={[styles.header, { borderBottomColor: borderColor }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => router.dismiss()}
           style={styles.headerSide}
         >
           <Text style={[styles.navText, { color: accentColor }]}>Cancel</Text>

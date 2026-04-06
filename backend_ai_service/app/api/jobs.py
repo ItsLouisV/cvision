@@ -2,7 +2,6 @@
 import json
 import logging
 import uuid
-from decimal import Decimal
 from typing import Optional, List
 from datetime import datetime, timedelta, timezone
 
@@ -25,8 +24,8 @@ class JobCreateRequest(BaseModel):
     description: str
     requirements: Optional[str] = None
     location: Optional[str] = None
-    salary_from: Optional[Decimal] = 0.0
-    salary_to: Optional[Decimal] = 0.0
+    salary_from: Optional[float] = 0.0
+    salary_to: Optional[float] = 0.0
     salary_unit: Optional[str] = 'month'
     currency: Optional[str] = 'VND'
     expired_at: Optional[str] = None

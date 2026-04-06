@@ -10,6 +10,8 @@ import { useColorScheme } from 'react-native';
 import { Colors } from '@/constants/themes';
 import { supabase } from '@/lib/supabase';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -90,15 +92,34 @@ export default function SettingsScreen() {
   const isEmployer = profile?.role === 'employer';
 
   return (
-    <ScrollView 
-      style={{ flex: 1, backgroundColor: isDark ? '#000' : '#F2F2F7' }}
-      contentInsetAdjustmentBehavior="automatic"
-    >
-      <Stack.Screen options={{ headerTitle: "Cài đặt", headerLargeTitle: true }} />
+    <View style={{ flex: 1, backgroundColor: isDark ? '#000' : '#F2F2F7' }}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      {/* 1. CARD THÔNG TIN CÁ NHÂN - Link tới settings/account/index */}
+      {/* Cấu hình header theo platform */}
+      {Platform.OS === 'ios' ? (
+        <Stack.Screen options={{ headerTitle: "Cài đặt", headerLargeTitle: true }} />
+      ) : (
+        // Android: ẩn header mặc định, dùng custom header bên dưới
+        <Stack.Screen options={{ headerShown: false }} />
+      )}
+
+      {/* Custom header cho Android */}
+      {Platform.OS === 'android' && (
+        <SafeAreaView edges={['top']} style={[styles.androidHeader, { backgroundColor: isDark ? '#1C1C1E' : '#FFF' }]}>
+          <View style={styles.androidHeaderContent}>
+            <Text style={[styles.androidHeaderTitle, { color: isDark ? '#FFF' : '#000' }]}>Cài đặt</Text>
+          </View>
+        </SafeAreaView>
+      )}
+
+      <ScrollView 
+        style={{ flex: 1 }}
+        contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : 'never'}
+      >
+
+      {/* 1. CARD THÔNG TIN CÁ NHÂN */}
       <TouchableOpacity 
-        style={[styles.profileCard, { backgroundColor: isDark ? '#1C1C1E' : '#FFF' }]}
+        style={[styles.profileCard, { backgroundColor: isDark ? '#1C1C1E' : '#FFF', marginTop: 16 }]}
         onPress={() => router.push('/settings/account')}
       >
         <Image 
@@ -187,12 +208,35 @@ export default function SettingsScreen() {
       </View>
       
       <View style={{ height: 50 }} />
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
-// ... Styles giữ nguyên như cũ của bạn
 const styles = StyleSheet.create({
+  // ── Android custom header ──
+  androidHeader: {
+    backgroundColor: '#FFF',
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(0,0,0,0.12)',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+  },
+  androidHeaderContent: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  androidHeaderTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+
+  // ── Existing styles ──
   section: { marginTop: 25, marginHorizontal: 16 },
   sectionHeader: { fontSize: 13, color: '#8E8E93', marginBottom: 8, marginLeft: 8, letterSpacing: 0.5 },
   sectionBody: { borderRadius: 12, overflow: 'hidden' },
@@ -201,7 +245,7 @@ const styles = StyleSheet.create({
   itemContent: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingRight: 16, marginLeft: 12 },
   itemLabel: { fontSize: 17, fontWeight: '400' },
   subLabel: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
-  profileCard: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, padding: 16, borderRadius: 16, marginTop: 10, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+  profileCard: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, padding: 16, borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
   avatar: { width: 65, height: 65, borderRadius: 32.5 },
   profileInfo: { flex: 1, marginLeft: 15 },
   name: { fontSize: 20, fontWeight: '700' },
