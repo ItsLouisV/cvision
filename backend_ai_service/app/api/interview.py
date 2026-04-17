@@ -5,12 +5,19 @@ from app.services.interview_ai import interview_ai
 import json
 import uuid
 import logging
+from enum import Enum
+
+class InterviewLanguage(Enum):
+    VIETNAMESE = "Vietnamese"
+    ENGLISH = "English"
+    BILINGUAL = "Bilingual"
 
 class StartInterviewRequest(BaseModel):
     user_id: str
     full_name: str = "Ứng viên"
     job_title: str
     level: str = "Junior"
+    language: InterviewLanguage = InterviewLanguage.VIETNAMESE #mặc định là tiếng Việt.
     job_id: str = None
 
 router = APIRouter(prefix="/interview", tags=["Interview"])
@@ -42,6 +49,7 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
 
         session_data = session.data[0]
         job_data = session_data.get('job_posts', {})
+        session_language = session_data.get('language', 'Vietnamese')
         
         # Lấy title / requirements từ custom field nếu không có job_id
         final_job_title = job_data.get('title') if job_data else session_data.get('custom_job_title', 'Không xác định')
@@ -94,6 +102,7 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                 job_title=final_job_title,
                 requirements=final_requirements,
                 cv_data=cv_text,
+                language=session_language,
                 user_answers_count=0,
                 history=[]
             )
@@ -145,14 +154,15 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                         job_title=final_job_title,
                         requirements=final_requirements,
                         cv_data=cv_text,
+                        language=session_language,
                         user_answers_count=user_answers_count,
                         history=history
                     )
 
-                # Bảo vệ: Nếu dưới 5 câu mà AI định kết thúc, ép thành câu hỏi để hỏi tiếp
-                if question.get('type') == 'summary' and user_answers_count < 5:
+                # Bảo vệ: Nếu dưới 4 câu mà AI định kết thúc, ép thành câu hỏi để hỏi tiếp
+                if question.get('type') == 'summary' and user_answers_count < 4:
                     question['type'] = 'question'
-                    question['content'] = "Cảm ơn bạn. Tiếp tục nhé, " + question.get('content', '')
+                    question['content'] = question.get('content', '')
 
                 # Lưu câu hỏi AI
                 supabase_client.table('interview_messages').insert({
@@ -169,6 +179,7 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                     })
                     eval_result = await interview_ai.evaluate_interview(
                         job_title=final_job_title,
+                        language=session_language,
                         messages=history
                     )
                     question['evaluation'] = {
@@ -281,6 +292,7 @@ async def start_interview(request: StartInterviewRequest):
         "job_id": request.job_id,
         "custom_job_title": request.job_title,
         "custom_level": request.level,
+        "language": request.language.value,
         "status": "ongoing"
     }
 

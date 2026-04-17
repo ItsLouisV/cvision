@@ -5,7 +5,7 @@ import {
   Text,
   View,
   NativeSyntheticEvent,
-  TextLayoutEventData
+  TextLayoutEventData,
 } from "react-native";
 import {
   Bookmark,
@@ -16,10 +16,11 @@ import {
   MessageCircle,
   RefreshCw,
   Send,
-  Verified
+  Verified,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { Pressable as RNGHPressable } from "react-native-gesture-handler";
+import { ActionRow } from "./ActionRow";
 
 const JOB_TYPE_MAP: Record<string, string> = {
   "full-time": "Toàn thời gian",
@@ -119,7 +120,10 @@ export const PostCard = React.memo(
       >
         {/* LEFT COLUMN – AVATAR */}
         <View style={styles.leftColumn}>
-          <PressableOpacity style={styles.avatarContainer} onPress={handlePressAvatar}>
+          <PressableOpacity
+            style={styles.avatarContainer}
+            onPress={handlePressAvatar}
+          >
             <View ref={avatarRef} collapsable={false}>
               <Image source={{ uri: post.userAvatar }} style={styles.avatar} />
               {post.is_verified && (
@@ -256,70 +260,20 @@ export const PostCard = React.memo(
           </View>
 
           {/* ACTIONS */}
-          <View style={styles.actionContainer}>
-            <View style={styles.actionRow}>
-              <PressableOpacity style={styles.actionBtn} onPress={onToggleLike}>
-                <Heart
-                  size={20}
-                  color={isLiked ? "#e74c3c" : isDark ? "#888" : "#666"}
-                  fill={isLiked ? "#e74c3c" : "transparent"}
-                />
-                {post.likes > 0 && (
-                  <Text
-                    style={[
-                      styles.actionCount,
-                      { color: isLiked ? "#e74c3c" : isDark ? "#888" : "#666" },
-                    ]}
-                  >
-                    {post.likes}
-                  </Text>
-                )}
-              </PressableOpacity>
-
-              <PressableOpacity
-                style={styles.actionBtn}
-                onPress={() =>
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                }
-              >
-                <MessageCircle size={19} color={isDark ? "#888" : "#666"} />
-                {post.replies > 0 && (
-                  <Text
-                    style={[
-                      styles.actionCount,
-                      { color: isDark ? "#888" : "#666" },
-                    ]}
-                  >
-                    {post.replies}
-                  </Text>
-                )}
-              </PressableOpacity>
-
-              <PressableOpacity
-                style={styles.actionBtn}
-                onPress={() =>
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                }
-              >
-                <RefreshCw size={19} color={isDark ? "#888" : "#666"} />
-              </PressableOpacity>
-
-              <PressableOpacity style={styles.actionBtn} onPress={onShare}>
-                <Send size={19} color={isDark ? "#888" : "#666"} />
-              </PressableOpacity>
-            </View>
-
-            <PressableOpacity
-              style={styles.actionBtnRight}
-              onPress={onToggleBookmark}
-            >
-              <Bookmark
-                size={20}
-                color={isBookmarked ? "#FFD700" : isDark ? "#888" : "#666"}
-                fill={isBookmarked ? "#FFD700" : "transparent"}
-              />
-            </PressableOpacity>
-          </View>
+          <ActionRow
+            isDark={isDark}
+            isLiked={isLiked}
+            likeCount={post.likes}
+            onLike={onToggleLike}
+            commentCount={post.replies}
+            onComment={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+            onRepost={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+            onShare={onShare}
+            shareIcon="send"
+            isBookmarked={isBookmarked}
+            onBookmark={onToggleBookmark}
+            style={{ marginTop: 12, marginLeft: -4 }}
+          />
         </View>
       </RNGHPressable>
     );

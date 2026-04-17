@@ -13,12 +13,8 @@ import { Colors } from "@/constants/themes";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics"; // Thêm Haptics cho chuyên nghiệp
-
-const SAVED_CATEGORIES = [
-  { id: "1", title: "Dành cho bạn", icon: "heart-outline", count: 12 },
-  { id: "2", title: "Đang theo dõi", icon: "people-outline", count: 45 },
-  { id: "3", title: "Bài viết tự hủy", icon: "flash-outline", count: 5 },
-];
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 
 interface SidebarViewProps {
   onClose?: () => void;
@@ -29,15 +25,45 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
 
-  // 🎯 HÀM XỬ LÝ CHUYỂN TRANG & ĐÓNG DRAWER
+  // Lấy thông tin Role của người dùng hiện tại
+  const { data: profile } = useQuery({
+    queryKey: ['current_profile_role'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      return data;
+    }
+  });
+
+
+  const isEmployer = profile?.role === 'employer';
+
+  // Tạo danh sách Menu động dựa trên role
+  const DYNAMIC_CATEGORIES = [
+    { id: "1", title: "Dành cho bạn", icon: "heart-outline", path: "" },
+    { id: "2", title: "Đang theo dõi", icon: "people-outline", path: "/following" }, // Louis sửa path này theo app nhé
+    { 
+      id: "3", 
+      title: isEmployer ? "Quản lý ứng viên" : "Bài viết đã ứng tuyển", 
+      icon: isEmployer ? "briefcase-outline" : "paper-plane-outline", 
+      path: isEmployer ? "/employer/manage-candidates" : "/user/applied-jobs" // 🎯 Path tùy chỉnh ở đây
+    },
+  ];
+
+  // HÀM XỬ LÝ CHUYỂN TRANG & ĐÓNG DRAWER
   const handleNavigation = (path: string) => {
-    // 1. Tạo cảm giác vật lý khi nhấn
+    // Tạo cảm giác vật lý khi nhấn
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
-    // 2. Thực hiện đóng Drawer trước để giao diện mượt mà
+    // Thực hiện đóng Drawer trước để giao diện mượt mà
     if (onClose) onClose();
 
-    // 3. Chuyển trang (dùng setTimeout một chút để Drawer kịp lướt đi)
+    // Chuyển trang (dùng setTimeout một chút để Drawer kịp lướt đi)
     setTimeout(() => {
       router.push(path as any);
     }, 0);
@@ -93,16 +119,16 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
         </View>
 
         {/* Categories */}
-        <View style={[styles.section, { borderColor: dynamicStyles.border.borderColor }]}>
-          {SAVED_CATEGORIES.map((item, index) => (
+        <View style={[styles.section, { borderColor: isDark ? "#333" : "#EEE" }]}>
+          {DYNAMIC_CATEGORIES.map((item, index) => (
             <TouchableOpacity
               key={item.id}
-              // onPress={() => handleNavigation("/(tabs)")} // Ví dụ quay lại Feed chính
+              onPress={() => handleNavigation(item.path)} // 🎯 Bấm vào là đi đúng path
               style={[
                 styles.categoryItem,
-                index !== SAVED_CATEGORIES.length - 1 && {
+                index !== DYNAMIC_CATEGORIES.length - 1 && {
                   borderBottomWidth: 0.5,
-                  borderBottomColor: dynamicStyles.border.borderColor,
+                  borderBottomColor: isDark ? "#333" : "#EEE",
                 },
               ]}
             >
@@ -110,7 +136,7 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
                 <View style={styles.iconCircle}>
                   <Ionicons name={item.icon as any} size={22} color={theme.text} />
                 </View>
-                <Text style={[styles.categoryTitle, dynamicStyles.text]}>
+                <Text style={[styles.categoryTitle, { color: theme.text }]}>
                   {item.title}
                 </Text>
               </View>

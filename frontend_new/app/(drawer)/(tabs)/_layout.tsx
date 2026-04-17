@@ -14,6 +14,7 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const theme = Colors[colorScheme ?? "light"];
+  const isDark = colorScheme === "dark";
 
   // State quản lý vai trò
   const [role, setRole] = useState<string | null>(null);
@@ -68,8 +69,8 @@ export default function TabLayout() {
         tabBarButton: HapticTab,
         tabBarShowLabel: false,
         tabBarStyle: {
-          borderTopWidth: 0,
-          backgroundColor: theme.background,
+          borderTopWidth: 0.2,
+          backgroundColor: isDark ? '#000' : '#F2F2F7',
           elevation: 0,
           height: TAB_BAR_HEIGHT,
           paddingBottom: insets.bottom > 0 ? insets.bottom : 15,

@@ -32,12 +32,14 @@ export default function CreateInterviewScreen() {
 
   const [jobTitle, setJobTitle] = useState("");
   const [level, setLevel] = useState("Junior"); // Default level
+  const [language, setLanguage] = useState("Vietnamese"); // Default language
   const [creating, setCreating] = useState(false);
   const [user, setUser] = useState<any>(null);
 
   const [cvContent, setCvContent] = useState<any>(null);
 
   const levels = ["Intern", "Fresher", "Junior", "Middle", "Senior"];
+  const languages = ["Vietnamese", "English", "Bilingual"];
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -103,6 +105,7 @@ export default function CreateInterviewScreen() {
         full_name: user?.user_metadata?.full_name || "Ứng viên",
         job_title: jobTitle,
         level: level,
+        language: language,
       };
 
       if (cvContent) {
@@ -248,6 +251,49 @@ export default function CreateInterviewScreen() {
                       ]}
                     >
                       {lvl}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text }]}>
+                Ngôn ngữ phỏng vấn
+              </Text>
+              <View style={styles.levelRow}>
+                {languages.map((lang) => (
+                  <TouchableOpacity
+                    key={lang}
+                    style={[
+                      styles.levelChip,
+                      {
+                        backgroundColor:
+                          language === lang
+                            ? "rgba(142, 68, 173, 0.1)"
+                            : isDark
+                              ? "#1C1C1E"
+                              : "#FFF",
+                        borderColor:
+                          language === lang
+                            ? accentColor
+                            : isDark
+                              ? "#333"
+                              : "#E5E5EA",
+                      },
+                    ]}
+                    onPress={() => setLanguage(lang)}
+                  >
+                    <Text
+                      style={[
+                        styles.levelText,
+                        {
+                          color: language === lang ? accentColor : "#8E8E93",
+                          fontWeight: language === lang ? "700" : "500",
+                        },
+                      ]}
+                    >
+                      {lang === "Vietnamese" ? "Tiếng Việt" : lang === "English" ? "Tiếng Anh" : "Song ngữ"}
                     </Text>
                   </TouchableOpacity>
                 ))}

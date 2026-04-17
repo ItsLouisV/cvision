@@ -28,7 +28,7 @@ async def upload_cv(
         # 1. Validate file dựa trên config
         content = await file.read()
         ext = safe_filename.lower().split('.')[-1]
-        allowed_exts = ['pdf', 'docx', 'doc', 'txt']
+        allowed_exts = ['pdf']
 
         if ext not in allowed_exts:
             raise HTTPException(400, f"Chỉ hỗ trợ các định dạng: {', '.join(allowed_exts)}")
@@ -42,7 +42,7 @@ async def upload_cv(
 
         supabase_client.storage \
             .from_('cvs') \
-            .upload(file_path, content)
+            .upload(file_path, content, file_options={"content-type": file.content_type})
 
         file_url = supabase_client.storage \
             .from_('cvs') \

@@ -62,12 +62,14 @@ const { width } = Dimensions.get("window");
 interface FeedViewProps {
   onPressMenu?: () => void;
   onPressSearch?: () => void;
+  activeTab?: 'all' | 'following';
+  onChangeTab?: (tab: 'all' | 'following') => void;
 }
 
 // ─────────────────────────────────────────────────────
 // FeedView – main component
 // ─────────────────────────────────────────────────────
-const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
+const FeedView = ({ onPressMenu, activeTab, onChangeTab }: FeedViewProps) => {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
@@ -119,16 +121,17 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
 
   const fetchJobs = async () => {
     try {
-      // 🎯 Bước 1: Reset sạch State cũ để tránh dữ liệu tài khoản trước còn sót lại
+      // Reset sạch State cũ để tránh dữ liệu tài khoản trước còn sót lại
       setLikedPosts({});
       setBookmarkedPosts({});
+      setIsLoading(true);
 
       const {
         data: { user },
       } = await supabase.auth.getUser();
       const currentUserId = user?.id;
 
-      const { data: jobData, error } = await supabase
+      let query = supabase
         .from("job_posts")
         .select(
           `
@@ -142,6 +145,30 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
         .eq("is_active", true)
         .order("created_at", { ascending: false });
 
+      if (activeTab === 'following') {
+        if (!currentUserId) {
+          setPosts([]); // Chưa đăng nhập thì không có gì để follow
+          return;
+        }
+
+        // Lấy danh sách ID những người Louis đang theo dõi
+        const { data: followings } = await supabase
+          .from("followers")
+          .select("following_id")
+          .eq("follower_id", currentUserId);
+
+        const followingIds = followings?.map(f => f.following_id) || [];
+
+        // Nếu không follow ai, trả về mảng rỗng luôn cho nhanh
+        if (followingIds.length === 0) {
+          setPosts([]);
+          return;
+        }
+
+        // Bước C: Áp dụng bộ lọc .in() - chỉ lấy bài của những người này
+        query = query.in("user_id", followingIds);
+      }
+      const { data: jobData, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
 
       if (jobData) {
@@ -246,7 +273,7 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [activeTab]);
 
   // Listen for create-post events
   useEffect(() => {
@@ -505,19 +532,49 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
     }
   };
 
+  const renderEmptyFollowing = () => (
+    <View style={styles.emptyContainer}>
+      {/* Một Icon lớn để thu hút sự chú ý */}
+      <View style={[styles.emptyIconCircle, { backgroundColor: isDark ? "#2C2C2E" : "#F2F2F7" }]}>
+        <Heart size={48} color={isDark ? "#444" : "#CCC"} strokeWidth={1.5} />
+      </View>
+
+      <Text style={[styles.emptyTitle, { color: theme.text }]}>
+        Chưa có bài viết nào
+      </Text>
+      
+      <Text style={styles.emptySubtitle}>
+        Hãy theo dõi các chuyên gia và nhà tuyển dụng để cập nhật những cơ hội việc làm mới nhất dành riêng cho bạn.
+      </Text>
+
+      {/* Nút gợi ý hành động */}
+      <TouchableOpacity 
+        style={styles.exploreBtn}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          onChangeTab?.('all'); // Quay lại tab Khám phá
+        }}
+      >
+        <RefreshCw size={18} color="#FFF" style={{ marginRight: 8 }} />
+        <Text style={styles.exploreBtnText}>Khám phá ngay</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   // ── RENDER ──
   return (
     <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.background }]}
+      style={[styles.container, { backgroundColor: isDark ? '#000' : '#F2F2F7' }]}
       edges={["top"]}
     >
       {/* HEADER */}
       <View
         style={[
           styles.header,
-          { borderBottomColor: isDark ? "#2C2C2E" : "#ebedf0" },
+          { borderBottomColor: isDark ? "#2C2C2E" : "#ebedf0", backgroundColor: isDark ? '#000' : '#F2F2F7' },
         ]}
       >
+        <View style={styles.headerTopRow}>
         <TouchableOpacity
           onPress={handleMenuPress}
           activeOpacity={0.7}
@@ -544,6 +601,35 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
             <Search size={24} color={theme.text} />
           </TouchableOpacity>
         </View>
+        </View>
+      </View>
+
+      <View style={styles.headerTabRow}>
+        <TouchableOpacity 
+          onPress={() => onChangeTab?.('all')} 
+          style={styles.tabItem}
+        >
+          <Text style={[
+            styles.tabText, 
+            activeTab === 'all' && [styles.activeTabText, { color: theme.text }]
+          ]}>
+            Dành cho bạn
+          </Text>
+          {activeTab === 'all' && <View style={[styles.activeIndicator, { backgroundColor: "#007AFF" }]} />}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          onPress={() => onChangeTab?.('following')} 
+          style={styles.tabItem}
+        >
+          <Text style={[
+            styles.tabText, 
+            activeTab === 'following' && [styles.activeTabText, { color: theme.text }]
+          ]}>
+            Đang theo dõi
+          </Text>
+          {activeTab === 'following' && <View style={[styles.activeIndicator, { backgroundColor: "#007AFF" }]} />}
+        </TouchableOpacity>
       </View>
 
       {/* UPLOADING INDICATOR */}
@@ -603,7 +689,7 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
       >
         {isLoading ? (
           <FeedSkeleton />
-        ) : (
+        ) : posts.length > 0 ? (
           posts.map((post) => (
             <PostCard
               key={post.id}
@@ -620,6 +706,10 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
               onPressAvatar={(pos) => openAvatarMenu(post, pos)}
             />
           ))
+        ) : activeTab === 'following' ? (
+          renderEmptyFollowing()
+        ) : (
+          <View style={styles.emptyContainer}><Text style={{color: '#888'}}>Không có bài viết nào.</Text></View>
         )}
       </ScrollView>
 
@@ -647,18 +737,58 @@ const FeedView = ({ onPressMenu, onPressSearch }: FeedViewProps) => {
   );
 };
 
+
 // ─────────────────────────────────────────────────────
 // Styles
 // ─────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
+    backgroundColor: 'transparent',
+  },
+  headerTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    height: 54,
+    height: 40,
+  },
+  appLogoText: {
+    fontSize: 18,
+    fontWeight: "900",
+    letterSpacing: -0.5,
+  },
+  headerTabRow: {
+    flexDirection: "row",
+    height: 40, // Độ cao chuẩn cho Tab bar
+    paddingHorizontal: 16,
+    gap: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderBottomWidth: 0.5,
+    borderBottomColor: "rgba(150,150,150,0.2)",
+  },
+  tabItem: {
+    justifyContent: 'center',
+    height: '100%',
+    position: 'relative',
+  },
+  tabText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#8E8E93', // Màu xám iOS chuẩn
+  },
+  activeTabText: {
+    fontWeight: '800',
+  },
+  activeIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: -4,
+    right: -4,
+    height: 3,
+    borderRadius: 2,
+    
   },
   headerRight: { flexDirection: "row", alignItems: "center" },
   headerBtn: { padding: 4, position: "relative" },
@@ -679,6 +809,54 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+    paddingVertical: 60,
+  },
+  emptyIconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: '#8E8E93',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  exploreBtn: {
+    flexDirection: 'row',
+    backgroundColor: '#8e44ad',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+    // Shadow cho nút
+    shadowColor: "#8e44ad",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  exploreBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 
 });
