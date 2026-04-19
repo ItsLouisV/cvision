@@ -25,6 +25,7 @@ import {
   Swipeable,
 } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface UserCV {
   id: string;
@@ -38,6 +39,7 @@ export default function HistoryListScreen() {
   const isDark = colorScheme === "dark";
   const accentColor = "#8e44ad";
   const router = useRouter();
+  const { user } = useCurrentUser();
 
   const [cvs, setCvs] = useState<UserCV[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,9 +50,6 @@ export default function HistoryListScreen() {
 
   const fetchCVs = async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data, error } = await supabase
@@ -72,8 +71,8 @@ export default function HistoryListScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchCVs();
-    }, []),
+      if (user) fetchCVs();
+    }, [user]),
   );
 
   const onRefresh = () => {

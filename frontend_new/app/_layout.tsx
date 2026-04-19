@@ -17,6 +17,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { toastConfig } from "@/components/ui/toast-config";
 import Toast from "react-native-toast-message";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
+        <AuthProvider>
         <KeyboardProvider>
           <ChatProvider>
             <ThemeProvider
@@ -53,6 +55,7 @@ export default function RootLayout() {
             </ThemeProvider>
           </ChatProvider>
         </KeyboardProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
   );

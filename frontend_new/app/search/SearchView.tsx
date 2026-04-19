@@ -11,6 +11,7 @@ import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Colors } from '@/constants/themes';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 // --- Sub-Component: Item kết quả (Dùng memo để tối ưu cuộn danh sách) ---
 const ProfileItem = memo(({ profile, theme, isDark }: any) => {
@@ -73,6 +74,7 @@ const SearchView = () => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const theme = Colors[colorScheme ?? 'light'];
+  const { user } = useCurrentUser();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -83,8 +85,6 @@ const SearchView = () => {
   setLoading(true);
   try {
     // 1. Lấy ID của Louis (người đang dùng app)
-    const { data: { user } } = await supabase.auth.getUser();
-
     let supabaseQuery = supabase
       .from('user_profiles')
       .select('id, full_name, headline, avatar_url, is_open_to_work, years_of_experience, preferred_locations')

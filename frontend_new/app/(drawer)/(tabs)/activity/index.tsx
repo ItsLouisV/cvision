@@ -16,6 +16,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface InterviewSession {
   id: string;
@@ -34,6 +35,7 @@ export default function InterviewHistoryScreen() {
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
   const accentColor = "#8e44ad";
+  const { user } = useCurrentUser();
 
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
   const [userName, setUserName] = useState("Username");
@@ -45,24 +47,20 @@ export default function InterviewHistoryScreen() {
   const fetchSessions = async (isRefresh = false) => {
     try {
       if (!isRefresh && sessions.length === 0) setLoading(true);
+      if (!user) { setLoading(false); setRefreshing(false); return; }
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        // Lấy tên từ metadata đã lưu lúc đăng ký
-        setUserName(user.user_metadata?.full_name || "Username");
+      // Lấy tên từ metadata đã lưu lúc đăng ký
+      setUserName(user.user_metadata?.full_name || "Username");
 
-        const { data, error } = await supabase
-          .from("interview_sessions")
-          .select(
-            `id, job_id, status, created_at, overall_score, custom_job_title, custom_level, job_posts ( title )`,
-          )
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false });
-        if (error) throw error;
-        setSessions((data as any) || []);
-      }
+      const { data, error } = await supabase
+        .from("interview_sessions")
+        .select(
+          `id, job_id, status, created_at, overall_score, custom_job_title, custom_level, job_posts ( title )`,
+        )
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setSessions((data as any) || []);
     } catch (error: any) {
       console.error(error.message);
     } finally {

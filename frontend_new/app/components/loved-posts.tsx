@@ -15,6 +15,7 @@ import { Colors } from "@/constants/themes";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { supabase } from "@/lib/supabase";
 import { PostService } from "@/utils/postInteractionService";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 // Giả sử Louis đã tách PostCard ra một file riêng để dùng chung
 import PostCard from "@/components/ui/PostCard";
 
@@ -22,21 +23,19 @@ const LovedPostsScreen = () => {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
+  const { user } = useCurrentUser();
 
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchLovedPosts();
-  }, []);
+    if (user) fetchLovedPosts();
+  }, [user]);
 
   const fetchLovedPosts = async () => {
     try {
       setLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       if (!user) return;
 
       // 🎯 TRUY VẤN LỒNG: Lấy từ bảng loved_posts và join sang job_posts

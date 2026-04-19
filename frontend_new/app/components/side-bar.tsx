@@ -15,6 +15,7 @@ import { router } from "expo-router";
 import * as Haptics from "expo-haptics"; // Thêm Haptics cho chuyên nghiệp
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface SidebarViewProps {
   onClose?: () => void;
@@ -25,11 +26,12 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
 
+  const { user } = useCurrentUser();
+
   // Lấy thông tin Role của người dùng hiện tại
   const { data: profile } = useQuery({
-    queryKey: ['current_profile_role'],
+    queryKey: ['current_profile_role', user?.id],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
       const { data } = await supabase
         .from('user_profiles')
@@ -37,7 +39,8 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
         .eq('id', user.id)
         .single();
       return data;
-    }
+    },
+    enabled: !!user,
   });
 
 
@@ -46,12 +49,12 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
   // Tạo danh sách Menu động dựa trên role
   const DYNAMIC_CATEGORIES = [
     { id: "1", title: "Dành cho bạn", icon: "heart-outline", path: "" },
-    { id: "2", title: "Đang theo dõi", icon: "people-outline", path: "/following" }, // Louis sửa path này theo app nhé
+    { id: "2", title: "Đang theo dõi", icon: "people-outline", path: "/following" },
     { 
       id: "3", 
       title: isEmployer ? "Quản lý ứng viên" : "Bài viết đã ứng tuyển", 
       icon: isEmployer ? "briefcase-outline" : "paper-plane-outline", 
-      path: isEmployer ? "/employer/manage-candidates" : "/user/applied-jobs" // 🎯 Path tùy chỉnh ở đây
+      path: isEmployer ? "/employer/manage-candidates" : "/user/applied-jobs" 
     },
   ];
 

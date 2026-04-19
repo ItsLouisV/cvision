@@ -9,12 +9,14 @@ import { Colors } from "@/constants/themes";
 import { supabase } from "@/lib/supabase";
 import { Flame, House, Sparkles, UserRound } from "lucide-react-native";
 import CreateButton from "./_create";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
+  const { user, loading: userLoading } = useCurrentUser();
 
   // State quản lý vai trò
   const [role, setRole] = useState<string | null>(null);
@@ -22,18 +24,17 @@ export default function TabLayout() {
 
   useEffect(() => {
     async function getUserRole() {
+      if (!user) {
+        if (!userLoading) setLoading(false);
+        return;
+      }
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user) {
-          const { data } = await supabase
-            .from("user_profiles")
-            .select("role")
-            .eq("id", user.id)
-            .single();
-          setRole(data?.role || "candidate");
-        }
+        const { data } = await supabase
+          .from("user_profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        setRole(data?.role || "candidate");
       } catch (error) {
         console.error("Lỗi lấy role:", error);
       } finally {
@@ -41,7 +42,7 @@ export default function TabLayout() {
       }
     }
     getUserRole();
-  }, []);
+  }, [user, userLoading]);
 
   const TAB_BAR_HEIGHT =
     Platform.OS === "ios" && insets.bottom > 0 ? 60 + insets.bottom : 68;

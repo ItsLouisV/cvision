@@ -56,6 +56,7 @@ import { PostMenu } from "@/utils/PostMenu";
 import { AvatarMenu } from "@/utils/AvatarMenu";
 import * as Linking from "expo-linking";
 import { PostCard, AvatarPosition } from "@/components/PostCard";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const { width } = Dimensions.get("window");
 
@@ -74,6 +75,7 @@ const FeedView = ({ onPressMenu, activeTab, onChangeTab }: FeedViewProps) => {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
+  const { user } = useCurrentUser();
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -101,9 +103,6 @@ const FeedView = ({ onPressMenu, activeTab, onChangeTab }: FeedViewProps) => {
   // ── FETCH DATA ──
   const checkUnreadNotifications = async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { count, error } = await supabase
@@ -126,9 +125,6 @@ const FeedView = ({ onPressMenu, activeTab, onChangeTab }: FeedViewProps) => {
       setBookmarkedPosts({});
       setIsLoading(true);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       const currentUserId = user?.id;
 
       let query = supabase

@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   ActivityIndicator,
   Alert,
@@ -29,12 +30,12 @@ export default function CreateInterviewScreen() {
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
   const accentColor = "#8e44ad";
+  const { user } = useCurrentUser();
 
   const [jobTitle, setJobTitle] = useState("");
   const [level, setLevel] = useState("Junior"); // Default level
   const [language, setLanguage] = useState("Vietnamese"); // Default language
   const [creating, setCreating] = useState(false);
-  const [user, setUser] = useState<any>(null);
 
   const [cvContent, setCvContent] = useState<any>(null);
 
@@ -42,13 +43,8 @@ export default function CreateInterviewScreen() {
   const languages = ["Vietnamese", "English", "Bilingual"];
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const fetchCvData = async () => {
       if (!user) return;
-      setUser(user);
-
       try {
         // Tự động lấy CV mới nhất để gợi ý Job Title và gửi text thô cho AI
         const { data: cvData } = await supabase
@@ -83,8 +79,8 @@ export default function CreateInterviewScreen() {
         console.log("No CV data found for auto-fill");
       }
     };
-    fetchUserData();
-  }, []);
+    fetchCvData();
+  }, [user]);
 
   const handleStartInterview = async () => {
     if (!jobTitle.trim()) {
@@ -136,7 +132,7 @@ export default function CreateInterviewScreen() {
       console.error(error);
       Alert.alert(
         "Lỗi kết nối",
-        "Không thể tạo phòng phỏng vấn lúc này. Hãy kiểm tra kết nối AI Backend.",
+        "Không thể kết nối đến server, vui lòng thử lại sau.",
       );
     } finally {
       setCreating(false);

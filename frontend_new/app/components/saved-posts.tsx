@@ -16,26 +16,25 @@ import { Colors } from "@/constants/themes";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { supabase } from "@/lib/supabase";
 import { PostService } from "@/utils/postInteractionService";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const SavedPostsScreen = () => {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
+  const { user } = useCurrentUser();
 
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchSavedPosts();
-  }, []);
+    if (user) fetchSavedPosts();
+  }, [user]);
 
   const fetchSavedPosts = async () => {
     try {
       setLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data, error } = await supabase

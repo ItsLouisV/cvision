@@ -30,6 +30,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface Message {
   id: string;
@@ -37,6 +38,60 @@ interface Message {
   content: string;
   timestamp: Date;
 }
+
+const BouncingDots = ({ color }: { color: string }) => {
+  const [animation1] = useState(new Animated.Value(0));
+  const [animation2] = useState(new Animated.Value(0));
+  const [animation3] = useState(new Animated.Value(0));
+
+  useEffect(() => {
+    const createAnimation = (anim: Animated.Value, delay: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    };
+
+    createAnimation(animation1, 0).start();
+    createAnimation(animation2, 200).start();
+    createAnimation(animation3, 400).start();
+  }, []);
+
+  const dotStyle = (anim: Animated.Value) => ({
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: color,
+    marginHorizontal: 3,
+    transform: [
+      {
+        translateY: anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -5],
+        }),
+      },
+    ],
+  });
+
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 4, height: 16 }}>
+      <Animated.View style={dotStyle(animation1)} />
+      <Animated.View style={dotStyle(animation2)} />
+      <Animated.View style={dotStyle(animation3)} />
+    </View>
+  );
+};
 
 const InterviewScreen = () => {
   const { session_id } = useLocalSearchParams();
@@ -57,8 +112,8 @@ const InterviewScreen = () => {
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
-  const [userId, setUserId] = useState<string | null>(null);
   const [evaluation, setEvaluation] = useState<any>(null);
+  const { user } = useCurrentUser();
 
   const ws = useRef<WebSocket | null>(null);
   const flatListRef = useRef<FlatList>(null);
@@ -122,11 +177,43 @@ const InterviewScreen = () => {
         // Bắt payload Đánh Giá hiển thị trên UI
         if (data.type === "summary" && data.evaluation) {
           setEvaluation(data.evaluation);
+          return;
         }
 
-        setMessages((prev) => {
-          // Sinh id tạm, nhưng nếu là hệ thống nhổ ra câu giống hệt thì có thể so khớp (tuy nhiên logic hiện tại append)
-          return [
+        if (data.type === "stream_start") {
+          setIsTyping(false);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: data.id,
+              sender: "ai",
+              content: "",
+              timestamp: new Date(),
+            },
+          ]);
+          return;
+        }
+
+        if (data.type === "stream_chunk") {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === data.id
+                ? { ...msg, content: msg.content + data.content }
+                : msg
+            )
+          );
+          return;
+        }
+
+        if (data.type === "stream_end") {
+          setIsTyping(false);
+          setTypingMessage("AI đang suy nghĩ...");
+          return;
+        }
+
+        // Dành cho fallback trả lời dạng cục bộ (ví dụ question)
+        if (data.content && !data.type?.startsWith("stream_")) {
+          setMessages((prev) => [
             ...prev,
             {
               id: Math.random().toString(),
@@ -134,10 +221,10 @@ const InterviewScreen = () => {
               content: data.content,
               timestamp: new Date(),
             },
-          ];
-        });
-        setIsTyping(false);
-        setTypingMessage("AI đang suy nghĩ...");
+          ]);
+          setIsTyping(false);
+          setTypingMessage("AI đang suy nghĩ...");
+        }
       } catch (err) {
         console.error("Lỗi parse dữ liệu WS:", err);
       }
@@ -195,18 +282,8 @@ const InterviewScreen = () => {
   };
 
   useEffect(() => {
-    // Lấy User ID hiện tại
-    const getInitialData = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
-
-      // Sau đó fetch tin nhắn cũ
-      await fetchMessages();
-    };
-
-    getInitialData();
+    // Fetch tin nhắn cũ khi vào màn hình
+    fetchMessages();
   }, []);
 
   useEffect(() => {
@@ -358,7 +435,7 @@ const InterviewScreen = () => {
 
       // Tự động gửi tin nhắn qua WebSocket nếu nhận diện được text
       const transcribedText = res.data?.text?.trim();
-      if (transcribedText && ws.current?.readyState === WebSocket.OPEN && userId) {
+      if (transcribedText && ws.current?.readyState === WebSocket.OPEN && user?.id) {
         // Hiển thị tin nhắn user ngay trên UI
         setMessages((prev) => [
           ...prev,
@@ -372,7 +449,7 @@ const InterviewScreen = () => {
 
         // Gửi qua WebSocket
         ws.current.send(
-          JSON.stringify({ type: "answer", content: transcribedText, user_id: userId })
+          JSON.stringify({ type: "answer", content: transcribedText, user_id: user?.id })
         );
         setIsTyping(true);
       } else if (transcribedText) {
@@ -394,9 +471,9 @@ const InterviewScreen = () => {
       !inputText.trim() ||
       !ws.current ||
       ws.current.readyState !== WebSocket.OPEN ||
-      !userId
+      !user?.id
     ) {
-      if (!userId) {
+      if (!user?.id) {
         Alert.alert("Lỗi", "Không tìm thấy User ID.");
         return;
       }
@@ -419,7 +496,7 @@ const InterviewScreen = () => {
     ]);
 
     ws.current.send(
-      JSON.stringify({ type: "answer", content: userMsg, user_id: userId }),
+      JSON.stringify({ type: "answer", content: userMsg, user_id: user?.id }),
     );
     setInputText("");
     setIsTyping(true);
@@ -614,11 +691,29 @@ const InterviewScreen = () => {
       />
 
       {(isTyping || isProcessingVoice) && (
-        <View style={styles.typingIndicator}>
-          <ActivityIndicator size="small" color={accentColor} />
-          <Text style={styles.typingText}>
-            {isProcessingVoice ? "Đang xử lý giọng nói..." : typingMessage}
-          </Text>
+        <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+          <View style={[styles.msgWrapper, styles.aiWrapper, { marginBottom: 0 }]}>
+            <View style={styles.aiAvatar}>
+              <Ionicons name="sparkles" size={12} color="#fff" />
+            </View>
+            <View
+              style={[
+                styles.bubble,
+                styles.aiBubble,
+                {
+                  backgroundColor: isDark ? "#2C2C2E" : "#F2F2F7",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingVertical: 14,
+                },
+              ]}
+            >
+              <BouncingDots color={"#8E8E93"} />
+              <Text style={[styles.typingText, { marginLeft: 8, color: "#8E8E93", fontSize: 12 }]}>
+                {isProcessingVoice ? "Đang xử lý giọng nói..." : typingMessage}
+              </Text>
+            </View>
+          </View>
         </View>
       )}
 

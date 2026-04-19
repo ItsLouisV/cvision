@@ -16,6 +16,7 @@ router = APIRouter(prefix="/cv", tags=["CV"])
 @router.post("/upload", response_model=None)  # Bạn có thể để CVAnalysisResponse nếu muốn validate chặt
 async def upload_cv(
         user_id: str,
+        is_default: bool = True,
         file: UploadFile = File(...)
 ):
     """Upload và phân tích CV bằng AI"""
@@ -69,17 +70,18 @@ async def upload_cv(
             "user_id": user_id,
             "file_name": safe_filename,
             "file_url": file_url,
-            "is_default": True,
+            "is_default": is_default,
             "raw_text": cv_text[:2000],  # Lưu đoạn đầu để preview
             "parsed_data": analysis,
             "embedding": embedding
         }
 
-        # Set các CV cũ không còn là mặc định
-        supabase_client.table('user_cvs') \
-            .update({"is_default": False}) \
-            .eq("user_id", user_id) \
-            .execute()
+        if is_default:
+            # Set các CV cũ không còn là mặc định
+            supabase_client.table('user_cvs') \
+                .update({"is_default": False}) \
+                .eq("user_id", user_id) \
+                .execute()
 
         # Insert CV mới
         result = supabase_client.table('user_cvs').insert(cv_data).execute()
@@ -118,7 +120,8 @@ async def upload_cv(
                 "user_id": user_id,
                 "title": "🎯 Phát hiện công việc phù hợp!",
                 "content": f"Hệ thống tìm thấy {len(matching_jobs)} công việc khớp với CV mới của bạn.",
-                "data": {"jobs": matching_jobs[:3]}
+                "data": {"jobs": matching_jobs[:3]},
+                "type": "job_match"
             }).execute()
 
         log_info("CV_API", f"Xử lý thành công CV ID: {cv_id}")

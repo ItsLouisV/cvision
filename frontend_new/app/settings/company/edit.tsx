@@ -13,15 +13,19 @@ import { Colors } from '@/constants/themes';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 export default function EditCompanyScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const theme = Colors[colorScheme ?? 'light'];
+  const { user } = useCurrentUser();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
   const [companyName, setCompanyName] = useState('');
@@ -32,14 +36,13 @@ export default function EditCompanyScreen() {
   const [address, setAddress] = useState('');
 
   useEffect(() => {
-    fetchCompanyData();
-  }, []);
+    if (user) fetchCompanyData();
+  }, [user]);
 
   const fetchCompanyData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
+      if (!user) return;
+      const { data } = await supabase
           .from('employers')
           .select('*')
           .eq('user_id', user.id)
@@ -55,7 +58,6 @@ export default function EditCompanyScreen() {
           setContactEmail(data.contact_email || '');
           setAddress(data.address || '');
         }
-      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -84,6 +86,57 @@ export default function EditCompanyScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
+  const requestMediaPermission = async () => {
+    const { status } = await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      const { status: newStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      return newStatus === 'granted';
+    }
+    return true;
+  };
+
+  const pickImage = async () => {
+    const hasPermission = await requestMediaPermission();
+    if (!hasPermission) {
+      Alert.alert('Lỗi', 'Cần quyền truy cập thư viện ảnh để chọn ảnh.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+    if (!result.canceled) {
+      uploadLogo(result.assets[0].uri);
+    }
+  };
+
+  const uploadLogo = async (uri: string) => {
+    setUploading(true);
+    try {
+      if (!user) return;
+
+      const response = await fetch(uri);
+      const arrayBuffer = await response.arrayBuffer();
+      const filePath = `${user.id}/${Date.now()}.png`;
+
+      const { error } = await supabase.storage
+        .from('avatars')
+        .upload(`company-logos/${filePath}`, arrayBuffer, { contentType: 'image/png', upsert: true });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(`company-logos/${filePath}`);
+      setLogoUrl(publicUrl);
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Lỗi', 'Không thể tải ảnh lên.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleUpdate = async () => {
     if (!companyName.trim()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -93,7 +146,6 @@ export default function EditCompanyScreen() {
 
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const cleanLinks = links.filter(link => link.trim() !== '');
@@ -131,7 +183,7 @@ export default function EditCompanyScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: isDark ? '#000' : '#FFF' }}>
-            {/* ===== MODERN HEADER ===== */}
+            {/* HEADER */}
             <SafeAreaView edges={['top']}
                 style={[
                     styles.headerWrapper,
@@ -195,17 +247,29 @@ export default function EditCompanyScreen() {
                 >
                 {/* LOGO SECTION */}
                 <View style={styles.logoSection}>
-                    <View style={[styles.logoWrapper, { backgroundColor: isDark ? '#2C2C2E' : '#FFF' }]}>
+                    <TouchableOpacity
+                        onPress={pickImage}
+                        disabled={uploading}
+                        activeOpacity={0.85}
+                        style={[styles.logoWrapper, { backgroundColor: isDark ? '#2C2C2E' : '#FFF' }]}
+                    >
                         {logoUrl ? (
-                            <Image source={{ uri: logoUrl }} style={styles.logo} />
+                            <Image source={{ uri: logoUrl }} style={[styles.logo, { opacity: uploading ? 0.5 : 1 }]} />
                         ) : (
-                            <MaterialCommunityIcons name="office-building" size={50} color="#8e44ad" />
+                            <MaterialCommunityIcons name="office-building" size={50} color={uploading ? '#C7C7CC' : '#8e44ad'} />
                         )}
-                        <Pressable style={styles.cameraBtn}>
-                            <Ionicons name="camera" size={18} color="#FFF" />
-                        </Pressable>
-                    </View>
-                    <Text style={[styles.logoTitle, { color: theme.text }]}>{companyName || "Tên công ty"}</Text>
+                        {uploading ? (
+                            <View style={styles.loaderOverlay}>
+                                <ActivityIndicator color="#FFF" />
+                            </View>
+                        ) : (
+                            <View style={styles.cameraBtn}>
+                                <Ionicons name="camera" size={18} color="#FFF" />
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                    <Text style={[styles.logoTitle, { color: theme.text }]}>{companyName || 'Tên công ty'}</Text>
+                    <Text style={styles.logoHint}>Chạm để đổi logo công ty</Text>
                 </View>
 
                 {/* FORM CONTAINER */}
@@ -382,7 +446,7 @@ const styles = StyleSheet.create({
     logoWrapper: {
         width: 110,
         height: 110,
-        borderRadius: 35,
+        borderRadius: 70,
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#000',
@@ -392,16 +456,18 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     
-    logo: { width: 110, height: 110, borderRadius: 35 },
+    logo: { width: 110, height: 110, borderRadius: 75, overflow: 'hidden' },
+    loaderOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 70, justifyContent: 'center', alignItems: 'center' },
+    logoHint: { marginTop: 8, fontSize: 13, color: '#8E8E93' },
     
     cameraBtn: {
         position: 'absolute',
-        bottom: -5,
-        right: -5,
+        bottom: 3,
+        right: 3,
         backgroundColor: '#8e44ad',
-        padding: 8,
-        borderRadius: 15,
-        borderWidth: 3,
+        padding: 5,
+        borderRadius: 35,
+        borderWidth: 1,
         borderColor: '#F2F2F7',
     },
     

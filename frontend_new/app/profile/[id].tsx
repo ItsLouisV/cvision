@@ -10,15 +10,16 @@ import { supabase } from "@/lib/supabase";
 import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/themes";
 import { 
-  ArrowLeft, MessageSquare, MapPin, 
+  MessageSquare, MapPin, 
   CheckCircle, Share2, MoreHorizontal, 
-  Edit3, Calendar, Briefcase
+  Edit3, Calendar, Briefcase, ChevronLeft
 } from "lucide-react-native";
 import { PostCard } from "@/components/PostCard";
 import { FollowService } from "@/utils/followService"; 
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatSalary, formatTime } from "@/utils/formatters";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const { width } = Dimensions.get("window");
 const BANNER_HEIGHT = 250;
@@ -34,13 +35,7 @@ const ProfileScreen = () => {
   const queryClient = useQueryClient();
 
   // 1. Current Auth User
-  const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      return user;
-    }
-  });
+  const { user: currentUser } = useCurrentUser();
   const currentUserId = currentUser?.id;
 
   // 2. Profile Data & Employer Info
@@ -264,12 +259,12 @@ const ProfileScreen = () => {
 
             {/* STATS */}
             <View style={styles.statsContainer}>
-              <TouchableOpacity style={styles.statBox}>
+              <TouchableOpacity style={styles.statBox} onPress={() => router.push(`/following?tab=following&userId=${userId}&name=${encodeURIComponent(profile.full_name || profile.username || 'Người dùng')}`)}>
                 <Text style={[styles.statNum, { color: theme.text }]}>{stats.following}</Text>
                 <Text style={styles.statLab}>Đang theo dõi</Text>
               </TouchableOpacity>
               <View style={[styles.vDivider, { backgroundColor: isDark ? '#6e6c6c' : '#d1cdcd' }]} />
-              <TouchableOpacity style={styles.statBox}>
+              <TouchableOpacity style={styles.statBox} onPress={() => router.push(`/following?tab=followers&userId=${userId}&name=${encodeURIComponent(profile.full_name || profile.username || 'Người dùng')}`)}>
                 <Text style={[styles.statNum, { color: theme.text }]}>{stats.followers}</Text>
                 <Text style={styles.statLab}>Người theo dõi</Text>
               </TouchableOpacity>
@@ -331,7 +326,7 @@ const ProfileScreen = () => {
         {/* Nội dung Navbar: Back - Title - More */}
         <View style={styles.navContentRow}>
           <TouchableOpacity style={styles.navCircle} onPress={() => router.back()}>
-            <ArrowLeft color={isDark ? "#FFF" : "#000"} size={22} />
+            <ChevronLeft color={isDark ? "#FFF" : "#000"} size={28} />
           </TouchableOpacity>
 
           <Animated.View style={{ flex: 1, opacity: headerTitleOpacity, alignItems: 'center' }}>
@@ -399,7 +394,7 @@ const styles = StyleSheet.create({
   },
   navCircle: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.05)',
     justifyContent: 'center', alignItems: 'center'
   },
   loadingCenter: { flex: 1, justifyContent: 'center', alignItems: 'center' },

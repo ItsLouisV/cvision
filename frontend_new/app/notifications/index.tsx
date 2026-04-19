@@ -10,6 +10,7 @@ import { Colors } from '@/constants/themes';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { supabase } from '@/lib/supabase';
 import { formatTime } from '@/utils/formatters';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 const PAGE_SIZE = 15; // Mỗi lần chỉ tải 15 tin để nhẹ máy
 
@@ -18,6 +19,7 @@ export default function NotificationsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
   const isDark = colorScheme === 'dark';
+  const { user } = useCurrentUser();
 
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,15 +34,20 @@ export default function NotificationsScreen() {
     let iconColor = '#8e44ad';
     let bgColor = isDark ? 'rgba(142, 68, 173, 0.15)' : 'rgba(142, 68, 173, 0.08)';
 
-    const type = item.data?.type;
-    if (type === 'match') {
+    const type = item.type || item.data?.type;
+    
+    if (type === 'match' || type === 'job_match') {
+      // Ứng viên: Việc làm mới hợp CV
       icon = 'sparkles';
       iconColor = '#8e44ad';
-    } else if (type === 'status') {
+      bgColor = isDark ? 'rgba(142, 68, 173, 0.15)' : 'rgba(142, 68, 173, 0.08)';
+    } else if (type === 'application' || type === 'status') {
+      // Employer: Thông báo có ứng viên nộp hồ sơ
       icon = 'briefcase-outline';
       iconColor = '#3498db';
       bgColor = isDark ? 'rgba(52, 152, 219, 0.15)' : 'rgba(52, 152, 219, 0.08)';
-    } else if (type === 'system') {
+    } else if (type === 'application_status' || type === 'system') {
+      // Candidate: Trạng thái hồ sơ được cập nhật hay message hệ thống
       icon = 'shield-checkmark-outline';
       iconColor = '#27ae60';
       bgColor = isDark ? 'rgba(39, 174, 96, 0.15)' : 'rgba(39, 174, 96, 0.08)';
@@ -51,7 +58,6 @@ export default function NotificationsScreen() {
   // 2. Hàm Fetch chính có Phân trang
   const fetchNotifications = async (pageNum: number, isRefresh = false) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const from = pageNum * PAGE_SIZE;
@@ -119,19 +125,8 @@ export default function NotificationsScreen() {
     fetchNotifications(0, true);
   };
 
-  // const handlePress = async (item: any) => {
-  //   if (!item.is_read) {
-  //     setNotifications(prev => 
-  //       prev.map(n => n.id === item.id ? { ...n, is_read: true } : n)
-  //     );
-  //     await supabase.from('notifications').update({ is_read: true }).eq('id', item.id);
-  //   }
-  //   if (item.data?.job_id) router.push(`/jobs/${item.data.job_id}`);
-  //   else if (item.data?.screen) router.push(item.data.screen as any);
-  // };
-
   const handlePress = async (item: any) => {
-  // 1. Đánh dấu đã đọc (Giữ nguyên logic của bạn)
+  // Đánh dấu đã đọc
   if (!item.is_read) {
     setNotifications(prev => 
       prev.map(n => n.id === item.id ? { ...n, is_read: true } : n)
@@ -139,7 +134,7 @@ export default function NotificationsScreen() {
     await supabase.from('notifications').update({ is_read: true }).eq('id', item.id);
   }
 
-  // 2. XỬ LÝ DỮ LIỆU DATA (QUAN TRỌNG)
+  // XỬ LÝ DỮ LIỆU DATA
   let rawData = item.data;
   if (typeof rawData === 'string') {
     try {
@@ -153,30 +148,49 @@ export default function NotificationsScreen() {
   const jobId = rawData.job_id;
   const status = rawData.status;
   const event = rawData.event;
-  const type = rawData.type;
+  const type = item.type || rawData.type;
 
-  // 3. LOGIC ĐIỀU HƯỚNG THÔNG MINH
-  
-  // KIỂM TRA TIN HỆ THỐNG TRƯỚC (Để chặn không cho vào trang chi tiết)
-  // Nếu status là 'closed' hoặc type là 'system' (như tin đầu tiên trong list của bạn)
-  if (jobId && (status === 'closed' || event === 'warning' || type === 'system')) {
-    console.log("Phát hiện tin hệ thống - Chuyển đến trang Edit bài:", jobId);
-    
-    router.push({
-      pathname: "/employer/expired-job", 
-      params: { id: jobId }
-    });
-    return; // Dừng lại luôn, không chạy xuống dưới
+  // LOGIC ĐIỀU HƯỚNG THÔNG MINH
+  switch (type) {
+    case 'application':
+    case 'status':
+      // Employer: có ứng viên nộp đơn
+      router.push('/employer/manage-candidates');
+      return;
+    case 'application_status':  // Candidate: hồ sơ được duyệt/từ chối
+      
+    case 'system':
+      // Tin nhắn hệ thống báo lỗi / đóng cửa
+      if (status === 'closed' || event === 'warning') {
+        if (jobId) {
+           router.push({
+             pathname: "/employer/expired-job", 
+             params: { id: jobId }
+           });
+        }
+      } else {
+        // Hoặc nộp đơn thành công 
+        return;
+      }
+      return;
+    case 'match':
+      // Notification việc làm phù hợp cho ứng viên
+      if (jobId) {
+        router.push(`/jobs/${jobId}`);
+      }
+      return;
+    case 'job_match':
+      // Khi upload CV phát hiện job tương thích
+      router.push('/(drawer)/(tabs)/home');
+      return;
   }
 
-  // NẾU LÀ TIN MATCH (Như tin thứ 3 trong list của bạn)
+  // CÁC TRƯỜNG HỢP KHÁC KHÔNG CÓ TYPE MỚI
   if (jobId) {
-    console.log("Điều hướng đến trang chi tiết công việc:", jobId);
     router.push(`/jobs/${jobId}`);
     return;
   }
-
-  // CÁC TRƯỜNG HỢP KHÁC
+  
   if (rawData.screen) {
     router.push(rawData.screen as any);
   }
@@ -190,7 +204,7 @@ export default function NotificationsScreen() {
       onPress={() => handlePress(item)}
       style={[
         styles.notificationItem, 
-        { backgroundColor: isDark ? (item.is_read ? theme.background : '#1C1C1E') : (item.is_read ? theme.background : '#F0F5FF') }
+        { backgroundColor: isDark ? (item.is_read ? '#000' : '#1C1C1E') : (item.is_read ? '#F2F2F7' : '#E5E5EA') }
       ]}
     >
       <View style={[styles.iconContainer, { backgroundColor: item.bgColor }]}>
@@ -198,19 +212,19 @@ export default function NotificationsScreen() {
       </View>
       <View style={styles.textContainer}>
         <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: theme.text, fontWeight: item.is_read ? '500' : '800' }]} numberOfLines={1}>
+          <Text style={[styles.title, { color: theme.text, fontWeight: item.is_read ? '500' : '800' }]} numberOfLines={2}>
             {item.title}
           </Text>
           {!item.is_read && <View style={styles.unreadDot} />}
         </View>
-        <Text style={[styles.body, { color: isDark ? '#A0A0A5' : '#6C6C70' }]} numberOfLines={3}>{item.content}</Text>
+        <Text style={[styles.body, { color: isDark ? '#A0A0A5' : '#6C6C70' }]} numberOfLines={4}>{item.content}</Text>
         <Text style={styles.time}>{formatTime(item.created_at)}</Text>
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#000' : '#F2F2F7' }]} edges={['top']}>
       <View style={[styles.header, { borderBottomColor: isDark ? '#2C2C2E' : '#E5E5EA' }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
           <Ionicons name="chevron-back" size={26} color={theme.text} />

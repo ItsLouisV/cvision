@@ -11,25 +11,25 @@ import { useColorScheme } from 'react-native';
 import { Colors } from '@/constants/themes';
 import { supabase } from '@/lib/supabase';
 import { StatusBar } from 'expo-status-bar';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 export default function CompanyProfileScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const theme = Colors[colorScheme ?? 'light'];
+  const { user } = useCurrentUser();
 
   const [company, setCompany] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchCompanyData(); }, []);
+  useEffect(() => { if (user) fetchCompanyData(); }, [user]);
 
   const fetchCompanyData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase.from('employers').select('*').eq('user_id', user.id).single();
-        if (data) setCompany(data);
-      }
+      if (!user) return;
+      const { data } = await supabase.from('employers').select('*').eq('user_id', user.id).single();
+      if (data) setCompany(data);
     } catch (error) { console.error(error); } finally { setLoading(false); }
   };
 
@@ -156,12 +156,12 @@ const styles = StyleSheet.create({
 
   heroSection: { alignItems: 'center', marginBottom: 30 },
   logoWrapper: { position: 'relative', shadowColor: '#8e44ad', shadowOpacity: 0.15, shadowRadius: 20, elevation: 5 },
-  logoImage: { width: 110, height: 110, borderRadius: 32, backgroundColor: '#FFF' },
+  logoImage: { width: 110, height: 110, borderRadius: 70, backgroundColor: '#FFF', overflow: 'hidden' },
   verifiedBadge: { position: 'absolute', bottom: -5, right: -5, backgroundColor: '#FFF', borderRadius: 15, padding: 1 },
   companyName: { fontSize: 28, fontWeight: '900', marginTop: 15, letterSpacing: -1 },
   
   socialRow: { flexDirection: 'row', gap: 15, marginTop: 20 },
-  socialIcon: { width: 46, height: 46, borderRadius: 15, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, elevation: 2 },
+  socialIcon: { width: 46, height: 46, borderRadius: 25, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, elevation: 2 },
 
   // Bento Grid
   contentPadding: { paddingHorizontal: 20 },

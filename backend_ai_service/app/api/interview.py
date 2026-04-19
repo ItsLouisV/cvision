@@ -86,6 +86,42 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
 
         active_sessions[session_id] = websocket
 
+        async def _run_ai_stream(user_answers_count: int, current_history: list):
+            msg_id = str(uuid.uuid4())
+            await websocket.send_json({"type": "stream_start", "id": msg_id})
+            
+            full_text = ""
+            is_summary = False
+            
+            stream_gen = interview_ai.generate_question_stream(
+                job_title=final_job_title,
+                requirements=final_requirements,
+                cv_data=cv_text,
+                language=session_language,
+                user_answers_count=user_answers_count,
+                history=current_history
+            )
+            
+            async for chunk in stream_gen:
+                if not full_text and "[SUMMARY]" in chunk:
+                    is_summary = True
+                    chunk = chunk.replace("[SUMMARY]", "").lstrip()
+                    
+                if chunk:
+                    full_text += chunk
+                    await websocket.send_json({"type": "stream_chunk", "id": msg_id, "content": chunk})
+            
+            if "[SUMMARY]" in full_text:
+                is_summary = True
+                full_text = full_text.replace("[SUMMARY]", "").lstrip()
+
+            await websocket.send_json({"type": "stream_end", "id": msg_id, "content": full_text})
+            
+            return {
+                "type": "summary" if is_summary else "question",
+                "content": full_text
+            }
+
         # Gửi tin nhắn chào mừng
         await websocket.send_json({
             "type": "system",
@@ -94,18 +130,7 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
 
         # Nếu chưa có tin nhắn, AI hỏi câu đầu tiên
         if len(history) == 0:
-            await websocket.send_json({
-                "type": "typing",
-                "content": "AI đang đọc CV của bạn, hãy chờ chút nhé..."
-            })
-            first_question = await interview_ai.generate_question(
-                job_title=final_job_title,
-                requirements=final_requirements,
-                cv_data=cv_text,
-                language=session_language,
-                user_answers_count=0,
-                history=[]
-            )
+            first_question = await _run_ai_stream(0, [])
 
             # Lưu câu hỏi
             supabase_client.table('interview_messages').insert({
@@ -113,8 +138,6 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                 "sender": "ai",
                 "content": first_question['content']
             }).execute()
-
-            await websocket.send_json(first_question)
 
         # Xử lý realtime chat
         while True:
@@ -140,24 +163,18 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                 user_answers_count = sum(1 for m in history if m['sender'] == 'user')
 
                 if user_answers_count >= 15:
+                    msg_id = str(uuid.uuid4())
+                    await websocket.send_json({"type": "stream_start", "id": msg_id})
+                    chunk = "Thời lượng phỏng vấn đã đạt tối đa 15 câu hỏi, Louis AI đã ghi nhận những câu trả lời của bạn. Rất cảm ơn bạn đã tham gia buổi phỏng vấn hôm nay. Louis AI sẽ đưa ra kết quả phỏng vấn như sau."
+                    await websocket.send_json({"type": "stream_chunk", "id": msg_id, "content": chunk})
+                    await websocket.send_json({"type": "stream_end", "id": msg_id, "content": chunk})
                     question = {
                         "type": "summary",
-                        "content": "Thời lượng phỏng vấn đã đạt tối đa 15 câu hỏi, Louis AI đã ghi nhận những câu trả lời của bạn. Rất cảm ơn bạn đã tham gia buổi phỏng vấn hôm nay. Louis AI sẽ đưa ra kết quả phỏng vấn như sau."
+                        "content": chunk
                     }
                 else:
-                    await websocket.send_json({
-                        "type": "typing",
-                        "content": "Louis AI đang suy nghĩ..."
-                    })
                     # AI sinh câu hỏi tiếp theo
-                    question = await interview_ai.generate_question(
-                        job_title=final_job_title,
-                        requirements=final_requirements,
-                        cv_data=cv_text,
-                        language=session_language,
-                        user_answers_count=user_answers_count,
-                        history=history
-                    )
+                    question = await _run_ai_stream(user_answers_count, history)
 
                 # Bảo vệ: Nếu dưới 4 câu mà AI định kết thúc, ép thành câu hỏi để hỏi tiếp
                 if question.get('type') == 'summary' and user_answers_count < 4:
@@ -182,7 +199,7 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                         language=session_language,
                         messages=history
                     )
-                    question['evaluation'] = {
+                    eval_data = {
                         "overall_score": int(float(eval_result.get('overall_score', 0))),
                         "technical_score": int(float(eval_result.get('technical_score', 0))),
                         "communication_score": int(float(eval_result.get('communication_score', 0))),
@@ -190,18 +207,20 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                         "weaknesses": eval_result.get('weaknesses', []),
                         "advice": eval_result.get('advice', '')
                     }
-
-                # Gửi câu hỏi hoặc Summary
-                await websocket.send_json(question)
-
-                # Nếu là câu cuối, cập nhật DB và đóng kết nối
-                if question.get('type') == 'summary':
-                    eval_json_str = json.dumps(question.get('evaluation', {}), ensure_ascii=False)
+                    question['evaluation'] = eval_data
+                    
+                    # Gửi evaluation
+                    await websocket.send_json({
+                        "type": "summary",
+                        "evaluation": eval_data
+                    })
+                    
+                    eval_json_str = json.dumps(eval_data, ensure_ascii=False)
                     # Cập nhật session
                     supabase_client.table('interview_sessions') \
                         .update({
                         "status": "completed",
-                        "overall_score": int(float(question.get('evaluation', {}).get('overall_score', 0))),
+                        "overall_score": eval_data["overall_score"],
                         "overall_feedback": eval_json_str
                     }) \
                         .eq('id', session_id) \

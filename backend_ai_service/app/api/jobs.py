@@ -64,7 +64,8 @@ async def notify_matching_candidates(job_id: str, job_title: str, company_name: 
                         "type": "match",  # Để Mobile hiện icon sparkles
                         "job_id": job_id,
                         "match_score": score
-                    }
+                    },
+                    "type": "match"
                 })
 
         if notifications:
@@ -168,7 +169,8 @@ async def apply_job(job_id: str, user_id: str, cv_id: str, cover_letter: str = N
             "user_id": job.data['user_id'],
             "title": "📬 Ứng viên mới!",
             "content": f"Một ứng viên vừa nộp đơn vào vị trí {job.data['title']}. Độ hợp: {final_score}%",
-            "data": {"type": "status", "job_id": job_id, "application_id": res.data[0]['id']}
+            "data": {"type": "status", "job_id": job_id, "application_id": res.data[0]['id']},
+            "type": "status"
         }
 
         # 3. Thông báo cho Ứng viên (Type: system)
@@ -176,7 +178,8 @@ async def apply_job(job_id: str, user_id: str, cv_id: str, cover_letter: str = N
             "user_id": user_id,
             "title": "✅ Ứng tuyển thành công",
             "content": f"Hồ sơ của bạn đã được gửi tới {job.data['company_name']}.",
-            "data": {"type": "system", "job_id": job_id}
+            "data": {"type": "system", "job_id": job_id},
+            "type": "system"
         }
 
         supabase_client.table('notifications').insert([notif_employer, notif_candidate]).execute()

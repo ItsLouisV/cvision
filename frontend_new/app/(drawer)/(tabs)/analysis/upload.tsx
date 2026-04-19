@@ -20,6 +20,7 @@ import { BlurView } from "expo-blur";
 import { supabase } from "@/lib/supabase";
 import axios from "axios";
 import { ENV } from "@/config";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const { width } = Dimensions.get("window");
 
@@ -32,20 +33,14 @@ export default function UploadCVScreen() {
 
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const { user, loading: userLoading } = useCurrentUser();
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUser(user);
-      } else {
-        Alert.alert("Thông báo", "Vui lòng đăng nhập để sử dụng tính năng này");
-        router.replace("/login");
-      }
-    };
-    getUser();
-  }, []);
+    if (!userLoading && !user) {
+      Alert.alert("Thông báo", "Vui lòng đăng nhập để sử dụng tính năng này");
+      router.replace("/login");
+    }
+  }, [user, userLoading]);
 
   const pickDocument = async () => {
     if (uploading) return;
@@ -93,7 +88,7 @@ export default function UploadCVScreen() {
       console.error(error);
       Alert.alert(
         "Lỗi phân tích",
-        "AI gặp sự cố khi đọc file của bạn. Hãy đảm bảo file PDF không có mật khẩu."
+        "Không thể kết nối đến server, vui lòng thử lại sau."
       );
     } finally {
       setUploading(false);
@@ -235,5 +230,5 @@ const styles = StyleSheet.create({
   loadingTitle: { fontSize: 20, fontWeight: "800", marginTop: 25 },
   loadingSub: { fontSize: 14, color: "#8E8E93", textAlign: "center", marginTop: 10, lineHeight: 20 },
   progressContainer: { width: "100%", height: 6, backgroundColor: "#F2F2F7", borderRadius: 3, marginTop: 25, overflow: 'hidden' },
-  progressBarFill: { width: "60%", height: "100%" }
+  progressBarFill: { width: "90%", height: "100%", borderRadius: 3 }
 });

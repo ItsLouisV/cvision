@@ -18,8 +18,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors } from "@/constants/themes";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { ChevronLeft, ChevronDown, Users, UserMinus, UserX } from "lucide-react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -39,14 +40,35 @@ const FollowingScreen = () => {
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
   const router = useRouter();
+  const { tab, userId, name } = useLocalSearchParams<{ tab: string; userId?: string; name?: string }>();
   const queryClient = useQueryClient();
+  const { user: currentUser } = useCurrentUser();
 
-  const [activeTab, setActiveTab] = useState<TabKey>("following");
+  const targetUserId = userId || currentUser?.id;
+  const targetName = name || currentUser?.user_metadata?.full_name || currentUser?.email?.split('@')[0] || "Hồ sơ";
+
+  const [activeTab, setActiveTab] = useState<TabKey>(tab === "followers" ? "followers" : "following");
 
   // Popup state
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [popoverPos, setPopoverPos] = useState({ top: 0, right: 0 });
+  const [popupAction, setPopupAction] = useState<'unfollow' | 'remove'>('unfollow');
+
+  // ─── Fetch "My Following Ids" ─────────────────────────
+  const { data: myFollowingIds = [], refetch: refetchMyFollowing } = useQuery<string[]>({
+    queryKey: ["my_following_ids", currentUser?.id],
+    queryFn: async () => {
+      if (!currentUser) return [];
+      const { data, error } = await supabase
+        .from("followers")
+        .select("following_id")
+        .eq("follower_id", currentUser.id);
+      if (error) throw error;
+      return (data as any[]).map((row) => row.following_id);
+    },
+    enabled: !!currentUser,
+  });
 
   // ─── Fetch "Đang theo dõi" ────────────────────────────
   const {
@@ -55,17 +77,17 @@ const FollowingScreen = () => {
     isRefetching: refetchingFollowing,
     refetch: refetchFollowing,
   } = useQuery<UserProfile[]>({
-    queryKey: ["following_users"],
+    queryKey: ["following_users", targetUserId],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
+      if (!targetUserId) return [];
       const { data, error } = await supabase
         .from("followers")
         .select(`following_id, user_profiles:following_id ( id, username, full_name, avatar_url )`)
-        .eq("follower_id", user.id);
+        .eq("follower_id", targetUserId);
       if (error) throw error;
       return (data as any[]).map((row) => row.user_profiles as UserProfile);
     },
+    enabled: !!currentUser,
   });
 
   // ─── Fetch "Người theo dõi" ───────────────────────────
@@ -75,17 +97,17 @@ const FollowingScreen = () => {
     isRefetching: refetchingFollowers,
     refetch: refetchFollowers,
   } = useQuery<UserProfile[]>({
-    queryKey: ["follower_users"],
+    queryKey: ["follower_users", targetUserId],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
+      if (!targetUserId) return [];
       const { data, error } = await supabase
         .from("followers")
         .select(`follower_id, user_profiles:follower_id ( id, username, full_name, avatar_url )`)
-        .eq("following_id", user.id);
+        .eq("following_id", targetUserId);
       if (error) throw error;
       return (data as any[]).map((row) => row.user_profiles as UserProfile);
     },
+    enabled: !!currentUser,
   });
 
   // ─── Derived data based on active tab ─────────────────
@@ -95,10 +117,11 @@ const FollowingScreen = () => {
   const refetch = activeTab === "following" ? refetchFollowing : refetchFollowers;
 
   // ─── Popup ────────────────────────────────────────────
-  const handleOpenPopup = useCallback((event: any, userItem: UserProfile) => {
+  const handleOpenPopup = useCallback((event: any, userItem: UserProfile, action: 'unfollow' | 'remove') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const { pageY, pageX } = event.nativeEvent;
     setSelectedUser(userItem);
+    setPopupAction(action);
     setPopoverPos({ top: pageY + 20, right: 16 }); // hiện dưới chổ bấm một xíu
     setModalVisible(true);
   }, []);
@@ -112,16 +135,16 @@ const FollowingScreen = () => {
   const handleUnfollow = async () => {
     if (!selectedUser) return;
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!currentUser) return;
       const { error } = await supabase
         .from("followers")
         .delete()
-        .match({ follower_id: user.id, following_id: selectedUser.id });
+        .match({ follower_id: currentUser.id, following_id: selectedUser.id });
       if (error) throw error;
-      queryClient.setQueryData<UserProfile[]>(["following_users"], (old) =>
+      queryClient.setQueryData<UserProfile[]>(["following_users", targetUserId], (old) =>
         (old ?? []).filter((u) => u.id !== selectedUser.id)
       );
+      refetchMyFollowing();
       handleClosePopup();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
@@ -133,20 +156,35 @@ const FollowingScreen = () => {
   const handleRemoveFollower = async () => {
     if (!selectedUser) return;
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!currentUser) return;
       const { error } = await supabase
         .from("followers")
         .delete()
-        .match({ follower_id: selectedUser.id, following_id: user.id });
+        .match({ follower_id: selectedUser.id, following_id: currentUser.id });
       if (error) throw error;
-      queryClient.setQueryData<UserProfile[]>(["follower_users"], (old) =>
+      queryClient.setQueryData<UserProfile[]>(["follower_users", targetUserId], (old) =>
         (old ?? []).filter((u) => u.id !== selectedUser.id)
       );
       handleClosePopup();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error("Remove follower error:", err);
+    }
+  };
+
+  // ─── Follow ───────────────────────────────────────────
+  const handleFollow = async (userToFollowId: string) => {
+    try {
+      if (!currentUser) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const { error } = await supabase
+        .from("followers")
+        .insert({ follower_id: currentUser.id, following_id: userToFollowId });
+      if (error) throw error;
+      refetchMyFollowing();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      console.error("Follow error:", err);
     }
   };
 
@@ -163,19 +201,25 @@ const FollowingScreen = () => {
         <Users size={36} color={isDark ? "#666" : "#AAA"} />
       </View>
       <Text style={[styles.emptyTitle, { color: theme.text }]}>
-        {activeTab === "following" ? "Bạn chưa theo dõi ai" : "Chưa có ai theo dõi bạn"}
+        {activeTab === "following" 
+            ? (targetUserId === currentUser?.id ? "Bạn chưa theo dõi ai" : `${targetName} chưa theo dõi ai`) 
+            : (targetUserId === currentUser?.id ? "Chưa có ai theo dõi bạn" : `Chưa có ai theo dõi ${targetName}`)}
       </Text>
       <Text style={styles.emptySub}>
         {activeTab === "following"
-          ? "Hãy khám phá và theo dõi những người bạn quan tâm!"
-          : "Hãy chia sẻ nội dung để thu hút mọi người!"}
+          ? (targetUserId === currentUser?.id ? "Hãy khám phá và theo dõi những người bạn quan tâm!" : "Người này hiện chưa theo dõi người dùng nào.")
+          : (targetUserId === currentUser?.id ? "Hãy chia sẻ nội dung để thu hút mọi người!" : "Người này hiện chưa có người theo dõi.")}
       </Text>
     </View>
   );
 
   // ─── Render each user row ─────────────────────────────
   const renderItem = ({ item }: { item: UserProfile }) => (
-    <View style={[styles.userRow, { borderBottomColor: isDark ? "#2C2C2E" : "#F0F0F0" }]}>
+    <TouchableOpacity
+      style={[styles.userRow, { borderBottomColor: isDark ? "#2C2C2E" : "#e0dcdc" }]}
+      onPress={() => router.push(`/profile/${item.id}`)}
+      activeOpacity={0.7}
+    >
       {/* Avatar */}
       {item.avatar_url ? (
         <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
@@ -198,24 +242,67 @@ const FollowingScreen = () => {
       </View>
 
       {/* Action button */}
-      {activeTab === "following" ? (
-        <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: isDark ? '#000' : '#F2F2F7' }]}
-          onPress={(e) => handleOpenPopup(e, item)}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.actionBtnText, { color: theme.text }]}>Đang theo dõi</Text>
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: isDark ? '#000' : '#F2F2F7' }]}
-          onPress={(e) => handleOpenPopup(e, item)}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.actionBtnText, { color: theme.text }]}>Gỡ</Text>
-        </TouchableOpacity>
-      )}
-    </View>
+      {(() => {
+        const isMe = currentUser?.id === item.id;
+        const isTargetMe = targetUserId === currentUser?.id;
+        const amIFollowing = myFollowingIds.includes(item.id);
+
+        if (isMe) {
+          return (
+            <View style={[styles.actionBtn, { backgroundColor: isDark ? '#1C1C1E' : '#E5E5EA', borderWidth: 0 }]}>
+              <Text style={[styles.actionBtnText, { color: isDark ? '#888' : '#666' }]}>Tôi</Text>
+            </View>
+          );
+        }
+
+        if (isTargetMe) {
+          if (activeTab === "following") {
+            return (
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: isDark ? '#000' : '#F2F2F7' }]}
+                onPress={(e) => handleOpenPopup(e, item, 'unfollow')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.actionBtnText, { color: theme.text }]}>Đang theo dõi</Text>
+              </TouchableOpacity>
+            );
+          } else {
+            return (
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: isDark ? '#000' : '#F2F2F7' }]}
+                onPress={(e) => handleOpenPopup(e, item, 'remove')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.actionBtnText, { color: theme.text }]}>Gỡ</Text>
+              </TouchableOpacity>
+            );
+          }
+        } else {
+          // Viewing someone else's list
+          if (amIFollowing) {
+            return (
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: isDark ? '#000' : '#F2F2F7' }]}
+                onPress={(e) => handleOpenPopup(e, item, 'unfollow')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.actionBtnText, { color: theme.text }]}>Đang theo dõi</Text>
+              </TouchableOpacity>
+            );
+          } else {
+            return (
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: '#8e44ad', borderWidth: 0 }]}
+                onPress={() => handleFollow(item.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.actionBtnText, { color: '#FFF' }]}>Theo dõi</Text>
+              </TouchableOpacity>
+            );
+          }
+        }
+      })()}
+    </TouchableOpacity>
   );
 
   // ─── Main render ──────────────────────────────────────
@@ -226,8 +313,8 @@ const FollowingScreen = () => {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={28} color={theme.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>
-          {activeTab === "following" ? "Đang theo dõi" : "Người theo dõi"}
+        <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
+          {targetName}
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -308,17 +395,17 @@ const FollowingScreen = () => {
                 ]}
               >
                 <TouchableOpacity
-                  onPress={activeTab === "following" ? handleUnfollow : handleRemoveFollower}
+                  onPress={popupAction === "unfollow" ? handleUnfollow : handleRemoveFollower}
                   style={styles.popoverItem}
                   activeOpacity={0.6}
                 >
-                  {activeTab === "following" ? (
+                  {popupAction === "unfollow" ? (
                     <UserMinus size={18} color="#FF3B30" style={{ marginRight: 8 }} />
                   ) : (
                     <UserX size={18} color="#FF3B30" style={{ marginRight: 8 }} />
                   )}
                   <Text style={styles.unfollowText}>
-                    {activeTab === "following"
+                    {popupAction === "unfollow"
                       ? `Ngừng theo dõi @${selectedUser?.username}`
                       : `Gỡ @${selectedUser?.username}`}
                   </Text>

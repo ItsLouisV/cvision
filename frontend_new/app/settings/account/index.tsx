@@ -12,12 +12,14 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ImageView from "react-native-image-viewing"; 
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 export default function AccountIndexScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const theme = Colors[colorScheme ?? 'light'];
+  const { user } = useCurrentUser();
 
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -32,16 +34,13 @@ export default function AccountIndexScreen() {
 
   const fetchUserData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase.from('user_profiles').select('*').eq('id', user.id).single();
-        // Thêm timestamp vào URL để buộc Image tải lại ảnh mới nếu vừa đổi
-        const avatarWithCacheBuster = data?.avatar_url 
-          ? `${data.avatar_url}?t=${new Date().getTime()}` 
-          : null;
-
-        setProfile({ ...data, avatar_url: avatarWithCacheBuster, email: user.email });
-      }
+      if (!user) return;
+      const { data } = await supabase.from('user_profiles').select('*').eq('id', user.id).single();
+      // Thêm timestamp vào URL để buộc Image tải lại ảnh mới nếu vừa đổi
+      const avatarWithCacheBuster = data?.avatar_url 
+        ? `${data.avatar_url}?t=${new Date().getTime()}` 
+        : null;
+      setProfile({ ...data, avatar_url: avatarWithCacheBuster, email: user.email });
     } catch (error) { 
       console.error(error); 
     } finally { 
@@ -56,7 +55,7 @@ export default function AccountIndexScreen() {
       <StatusBar style={isDark ? 'light' : 'dark'} />
       
       {/* HEADER */}
-      <SafeAreaView edges={['top']} style={[styles.headerContainer, { backgroundColor: isDark ? '#1C1C1E' : '#FFF' }]}>
+      <SafeAreaView edges={['top']} style={[styles.headerContainer, { backgroundColor: isDark ? '#000' : '#FFF' }]}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
             <Ionicons name="chevron-back" size={26} color={theme.text} />
@@ -74,13 +73,13 @@ export default function AccountIndexScreen() {
       {loading ? (
         <View style={styles.centeredLoading}>
           <ActivityIndicator size="large" color="#8e44ad" />
-          <Text style={{ marginTop: 12, color: '#8E8E93' }}>Đang kết nối Louis AI...</Text>
+          <Text style={{ marginTop: 12, color: '#8E8E93' }}>Loading...</Text>
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
           
           {/* PROFILE CARD */}
-          <View style={[styles.profileCard, { backgroundColor: isDark ? '#1C1C1E' : '#FFF' }]}>
+          <View style={[styles.profileCard, { backgroundColor: isDark ? '#000' : '#FFF' }]}>
             {/* Chạm vào Wrapper để mở Zoom ảnh */}
             <TouchableOpacity 
               onPress={() => setIsImageViewVisible(true)} 

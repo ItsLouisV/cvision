@@ -10,6 +10,7 @@ import { useRouter, Stack, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import CurrencyInput from 'react-native-currency-input';
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   ActivityIndicator,
   Alert,
@@ -59,6 +60,7 @@ const CreateJobPost = () => {
   const [fetchingEmployer, setFetchingEmployer] = useState(true);
   const [employerId, setEmployerId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState("");
+  const { user } = useCurrentUser();
 
   // States dữ liệu Form
   const [title, setTitle] = useState("");
@@ -92,9 +94,6 @@ const CreateJobPost = () => {
     const initScreen = async () => {
       try {
         setFetchingEmployer(true);
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
         if (!user) return;
 
         const { data: profile } = await supabase
@@ -156,13 +155,8 @@ const CreateJobPost = () => {
 
   const handlePostJob = async () => {
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
       // Kiểm tra user tồn tại
-      if (userError || !user) {
+      if (!user) {
         Alert.alert("Lỗi", "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
         return;
       }

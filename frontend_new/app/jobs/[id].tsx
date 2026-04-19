@@ -43,6 +43,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 import { ActionRow } from "@/components/ActionRow";
 import { ApplyJobModal } from "@/components/ApplyJobModal";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const { width } = Dimensions.get("window");
 
@@ -53,6 +54,7 @@ const JobDetailScreen = () => {
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
   const insets = useSafeAreaInsets();
+  const { user } = useCurrentUser();
 
   const [loading, setLoading] = useState(true);
   const [job, setJob] = useState<any>(null);
@@ -64,7 +66,6 @@ const JobDetailScreen = () => {
   const [hasApplied, setHasApplied] = useState(false);
   const [applicationStatus, setApplicationStatus] = useState<string | null>(null);
   const [isApplyModalVisible, setIsApplyModalVisible] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const expandAnim = useRef(new Animated.Value(0)).current; // 0 = apply mode, 1 = send mode
@@ -72,7 +73,7 @@ const JobDetailScreen = () => {
   const inputRef = useRef<TextInput>(null);
 
   // Determine if we're in "send mode" (show send icon) or "apply mode"
-  const isOwner = currentUserId === job?.user_id || currentUserId === job?.user_profiles?.id;
+  const isOwner = user?.id === job?.user_id || user?.id === job?.user_profiles?.id;
   const isSendMode = inputFocused || commentText.trim().length > 0 || isOwner;
 
   // Animate expand when send mode changes
@@ -162,11 +163,6 @@ const JobDetailScreen = () => {
   const fetchJobDetail = async () => {
     try {
       const jobId = Array.isArray(id) ? id[0] : id;
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setCurrentUserId(user?.id || null);
 
       // 🎯 Thêm user_profiles vào chuỗi select
       const { data, error } = await supabase
@@ -279,9 +275,6 @@ const JobDetailScreen = () => {
   const handleRevokeApplication = async () => {
     try {
       const jobId = Array.isArray(id) ? id[0] : id;
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { error } = await supabase

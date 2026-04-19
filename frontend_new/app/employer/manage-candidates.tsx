@@ -1,6 +1,8 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
+import dayjs from 'dayjs'
+
 import React, { useState } from "react";
 import {
   View,
@@ -21,16 +23,17 @@ import { Colors } from "@/constants/themes";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
   Users,
-  ArrowLeft,
   Check,
   X,
   FileText,
   Download,
+  ChevronLeft,
 } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Toast from "react-native-toast-message";
 import { CVPreviewModal } from "@/components/CVPreviewModal";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const timeAgo = (dateString: string) => {
   const date = new Date(dateString);
@@ -59,6 +62,7 @@ export default function ManageCandidatesScreen() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewFileName, setPreviewFileName] = useState<string>("");
+  const { user } = useCurrentUser();
 
   const {
     data: applications = [],
@@ -66,11 +70,8 @@ export default function ManageCandidatesScreen() {
     isRefetching,
     refetch,
   } = useQuery({
-    queryKey: ["manage_candidates"],
+    queryKey: ["manage_candidates", user?.id],
     queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       if (!user) return [];
 
       // console.log("--- START DEBUGGING ---");
@@ -154,6 +155,7 @@ export default function ManageCandidatesScreen() {
 
       return merged;
     },
+    enabled: !!user,
   });
 
   const handleUpdateStatus = async (
@@ -198,6 +200,7 @@ export default function ManageCandidatesScreen() {
                   title,
                   content,
                   data: { type: "application_status", application_id: appId },
+                  type: "application_status",
                 },
               ]);
 
@@ -318,7 +321,7 @@ export default function ManageCandidatesScreen() {
 
   return (
     <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.background }]}
+      style={[styles.container, { backgroundColor: isDark ? "#000" : "#F2F2F7" }]}
     >
       <View
         style={[
@@ -327,7 +330,7 @@ export default function ManageCandidatesScreen() {
         ]}
       >
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={theme.text} />
+          <ChevronLeft size={28} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>
           Quản lý ứng viên
@@ -375,7 +378,7 @@ export default function ManageCandidatesScreen() {
                 style={[
                   styles.card,
                   {
-                    backgroundColor: isDark ? "#1C1C1E" : "#FFF",
+                    backgroundColor: isDark ? "#0d0d0d" : "#FFF",
                     borderColor: isDark ? "#2C2C2E" : "#E5E5EA",
                   },
                 ]}
@@ -437,6 +440,30 @@ export default function ManageCandidatesScreen() {
                     {jobTitle}
                   </Text>
                 </View>
+
+                {/* Contact Info (if any) */}
+                {(item.full_name || item.email || item.phone) ? (
+                  <View style={[styles.coverLetterWrap, { borderLeftColor: "#34C759" }]}>
+                    <Text style={[styles.coverLetterTitle, { color: theme.text }]}>
+                      Thông tin liên hệ:
+                    </Text>
+                    {item.full_name ? (
+                      <Text style={[styles.contactText, { color: isDark ? "#AAA" : "#555" }]}>
+                        Họ Tên: {item.full_name}
+                      </Text>
+                    ) : null}
+                    {item.email ? (
+                      <Text style={[styles.contactText, { color: isDark ? "#AAA" : "#555" }]}>
+                        Email: {item.email}
+                      </Text>
+                    ) : null}
+                    {item.phone ? (
+                      <Text style={[styles.contactText, { color: isDark ? "#AAA" : "#555" }]}>
+                        SĐT: {item.phone}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : null}
 
                 {/* Cover Letter (if any) */}
                 {item.cover_letter ? (
@@ -620,6 +647,7 @@ const styles = StyleSheet.create({
   },
   coverLetterTitle: { fontSize: 13, fontWeight: "600", marginBottom: 4 },
   coverLetterText: { fontSize: 14, lineHeight: 20 },
+  contactText: { fontSize: 14, lineHeight: 20, marginTop: 2, fontWeight: "500" },
   actionsRow: {
     flexDirection: "row",
     justifyContent: "space-between",

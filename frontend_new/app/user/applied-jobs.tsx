@@ -17,6 +17,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { Briefcase, ArrowLeft, Building2, ChevronLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   const dd = String(date.getDate()).padStart(2, "0");
@@ -46,13 +47,11 @@ const AppliedJobsScreen = () => {
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
   const router = useRouter();
+  const { user } = useCurrentUser();
 
   const { data: applications = [], isLoading, isRefetching, refetch } = useQuery({
-    queryKey: ["applied_jobs"],
+    queryKey: ["applied_jobs", user?.id],
     queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       if (!user) return [];
 
       const { data, error } = await supabase
@@ -78,6 +77,7 @@ const AppliedJobsScreen = () => {
       if (error) throw error;
       return data;
     },
+    enabled: !!user,
   });
 
   const renderEmptyState = () => (
@@ -95,7 +95,7 @@ const AppliedJobsScreen = () => {
         style={styles.discoverBtn}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.replace("/(drawer)/(tabs)/home");
+          router.back();
         }}
       >
         <Text style={styles.discoverText}>Khám phá việc làm</Text>

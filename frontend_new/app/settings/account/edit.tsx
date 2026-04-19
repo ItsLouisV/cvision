@@ -12,12 +12,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 export default function AccountEditScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const theme = Colors[colorScheme ?? 'light'];
+  const { user } = useCurrentUser();
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -26,18 +28,16 @@ export default function AccountEditScreen() {
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (user) loadData();
+  }, [user]);
 
   const loadData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase.from('user_profiles').select('*').eq('id', user.id).single();
-      if (data) {
-        setFullName(data.full_name || '');
-        setPhone(data.phone || '');
-        setAvatarUrl(data.avatar_url || '');
-      }
+    if (!user) return;
+    const { data } = await supabase.from('user_profiles').select('*').eq('id', user.id).single();
+    if (data) {
+      setFullName(data.full_name || '');
+      setPhone(data.phone || '');
+      setAvatarUrl(data.avatar_url || '');
     }
   };
 
@@ -75,7 +75,6 @@ export default function AccountEditScreen() {
   const uploadAvatar = async (uri: string) => {
     setUploading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       // Đọc file dưới dạng mảng byte (ArrayBuffer) trực tiếp
@@ -110,7 +109,6 @@ export default function AccountEditScreen() {
   setSaving(true);
   
   try {
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Không tìm thấy user");
 
     console.log("Đang lưu link ảnh:", avatarUrl); 
@@ -140,7 +138,7 @@ export default function AccountEditScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: isDark ? '#000' : '#F2F2F7' }}>
-      <SafeAreaView edges={['top']} style={[styles.headerContainer, { backgroundColor: isDark ? '#1C1C1E' : '#FFF' }]}>
+      <SafeAreaView edges={['top']} style={[styles.headerContainer, { backgroundColor: isDark ? '#000' : '#FFF' }]}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => router.back()}><Ionicons name="close" size={28} color={theme.text} /></TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.text }]}>Sửa hồ sơ</Text>

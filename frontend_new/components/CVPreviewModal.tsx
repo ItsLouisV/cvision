@@ -91,7 +91,11 @@ export const CVPreviewModal = ({
 
           <View style={styles.titleWrap}>
             <ShieldCheck size={16} color="#2ecc71" style={{ marginRight: 6 }} />
-            <Text style={[styles.headerTitle, { color: theme.text }]}>
+            <Text 
+              style={[styles.headerTitle, { color: theme.text }]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {fileName || "Xem CV"}
             </Text>
           </View>
@@ -180,12 +184,16 @@ const styles = StyleSheet.create({
     marginHorizontal: -8,
   },
   titleWrap: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: 16,
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: "600",
+    flexShrink: 1,
   },
   content: {
     flex: 1,

@@ -20,6 +20,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const { width } = Dimensions.get("window");
 
@@ -62,10 +63,11 @@ export default function CVAnalysisScreen() {
   const [matchingJobs, setMatchingJobs] = useState<Job[]>([]);
   const [cvFileName, setCvFileName] = useState<string>("");
   const [refreshing, setRefreshing] = useState(false);
+  const { user } = useCurrentUser();
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) fetchData();
+  }, [user]);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -79,9 +81,6 @@ export default function CVAnalysisScreen() {
   const fetchData = async () => {
     try {
       if (!refreshing && !analysis) setLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       if (!user) return;
 
       // 1. Lấy dữ liệu CV mới nhất

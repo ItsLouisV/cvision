@@ -18,6 +18,8 @@ import { supabase } from "@/lib/supabase";
 import Toast from "react-native-toast-message";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
+import * as DocumentPicker from "expo-document-picker";
+import { ENV } from "@/config";
 
 interface CVData {
   id: string;
@@ -49,9 +51,13 @@ export const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [cvs, setCvs] = useState<CVData[]>([]);
   const [selectedCvId, setSelectedCvId] = useState<string | null>(null);
   const [coverLetter, setCoverLetter] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
 
   const surfaceBg = isDark ? "#1C1C1E" : "#FFF";
   const secondaryBg = isDark ? "#2C2C2E" : "#F2F2F7";
@@ -65,6 +71,9 @@ export const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
       // Reset form
       setCoverLetter("");
       setSelectedCvId(null);
+      setFullName("");
+      setEmail("");
+      setPhone("");
     }
   }, [visible]);
 
@@ -78,6 +87,13 @@ export const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
       if (!user) {
         setLoading(false);
         return;
+      }
+
+      setFullName(user.user_metadata?.full_name || "");
+      setEmail(user.email || "");
+      const { data: profile } = await supabase.from('user_profiles').select('phone').eq('id', user.id).single();
+      if (profile && profile.phone) {
+        setPhone(profile.phone);
       }
 
       // Check if user has CVs
@@ -112,6 +128,52 @@ export const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
     }
   };
 
+  const handleUploadNewCV = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: "application/pdf",
+        copyToCacheDirectory: true,
+      });
+
+      if (res.canceled) return;
+      const file = res.assets[0];
+
+      setIsUploading(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Chưa đăng nhập");
+
+      const formData = new FormData();
+      // @ts-ignore
+      formData.append("file", {
+        uri: Platform.OS === "ios" ? file.uri.replace("file://", "") : file.uri,
+        name: file.name,
+        type: file.mimeType || "application/pdf",
+      });
+
+      const response = await fetch(`${ENV.API_URL}/cv/upload?user_id=${user.id}&is_default=false`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Lưu file thất bại");
+      }
+
+      const responseData = await response.json();
+      if (responseData.success) {
+         Toast.show({ type: "success", text1: "Tải file thành công" });
+         await fetchCvs();
+         setSelectedCvId(responseData.cv_id);
+      }
+    } catch (e: any) {
+      console.error(e);
+      Toast.show({ type: "error", text1: "Lỗi tải file", text2: e.message });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleApply = async () => {
     if (!selectedCvId) {
       Toast.show({
@@ -136,6 +198,9 @@ export const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
           user_id: user.id,
           cv_id: selectedCvId,
           cover_letter: coverLetter.trim() || null,
+          full_name: fullName.trim() || null,
+          email: email.trim() || null,
+          phone: phone.trim() || null,
         },
       ]);
 
@@ -155,6 +220,7 @@ export const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
             title: "Có ứng viên mới!",
             content: `${applicantName} vừa ứng tuyển vào vị trí ${jobTitle}. Bấm để xem ngay!`,
             data: { type: "application", job_id: jobId, applicant_id: user.id },
+            type: "application",
           },
         ]);
       }
@@ -272,6 +338,62 @@ export const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
                       </TouchableOpacity>
                     ))
                   )}
+
+                  <TouchableOpacity
+                    style={[styles.uploadNewBtn, { borderColor: separator }]}
+                    onPress={handleUploadNewCV}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? (
+                      <ActivityIndicator size="small" color="#8e44ad" />
+                    ) : (
+                      <>
+                        <FileText size={20} color="#8e44ad" />
+                        <Text style={[styles.uploadNewBtnText, { color: theme.text }]}>
+                          Tải lên CV khác (PDF)
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Thông tin liên hệ */}
+                <View style={styles.section}>
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                    Thông tin liên hệ
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.contactInput,
+                      { backgroundColor: secondaryBg, color: theme.text, borderColor: separator },
+                    ]}
+                    placeholder="Họ Tên"
+                    placeholderTextColor={secondaryText}
+                    value={fullName}
+                    onChangeText={setFullName}
+                  />
+                  <TextInput
+                    style={[
+                      styles.contactInput,
+                      { backgroundColor: secondaryBg, color: theme.text, borderColor: separator, marginTop: 10 },
+                    ]}
+                    placeholder="Email"
+                    keyboardType="email-address"
+                    placeholderTextColor={secondaryText}
+                    value={email}
+                    onChangeText={setEmail}
+                  />
+                  <TextInput
+                    style={[
+                      styles.contactInput,
+                      { backgroundColor: secondaryBg, color: theme.text, borderColor: separator, marginTop: 10 },
+                    ]}
+                    placeholder="Số điện thoại"
+                    keyboardType="phone-pad"
+                    placeholderTextColor={secondaryText}
+                    value={phone}
+                    onChangeText={setPhone}
+                  />
                 </View>
 
                 {/* Cover Letter */}
@@ -299,30 +421,30 @@ export const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
                   </View>
                 )}
               </ScrollView>
-
-              {/* Submit Button */}
-              {cvs.length > 0 && (
-                <View style={[styles.footer, { borderTopColor: separator }]}>
-                  <TouchableOpacity
-                    style={[
-                      styles.submitBtn,
-                      submitting && { opacity: 0.7 },
-                    ]}
-                    onPress={handleApply}
-                    disabled={submitting}
-                  >
-                    {submitting ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.submitBtnText}>Gửi hồ sơ ứng tuyển</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              )}
             </View>
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+
+      {/* Submit Button */}
+      {cvs.length > 0 && (
+        <View style={[styles.footer, { borderTopColor: separator, backgroundColor: theme.background }]}>
+          <TouchableOpacity
+            style={[
+              styles.submitBtn,
+              submitting && { opacity: 0.7 },
+            ]}
+            onPress={handleApply}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.submitBtnText}>Gửi hồ sơ ứng tuyển</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
     </Modal>
   );
 };
@@ -340,7 +462,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 8,
-    minHeight: 300,
+    minHeight: 400,
   },
   header: {
     flexDirection: "row",
@@ -415,6 +537,27 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
+  },
+  uploadNewBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    marginTop: 10,
+    gap: 8,
+  },
+  uploadNewBtnText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  contactInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 15,
   },
   coverInput: {
     borderWidth: 1,

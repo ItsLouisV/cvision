@@ -175,7 +175,7 @@ const ExpiredJobScreen = () => {
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#8e44ad" /></View>;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#000' : '#F2F2F7' }]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       {/* --- HEADER --- */}
@@ -259,7 +259,7 @@ const ExpiredJobScreen = () => {
 
       {/* --- FOOTER: CHỈ HIỂN THỊ KHI SẮP HẾT HẠN HOẶC ĐÃ HẾT HẠN --- */}
       {status?.showFooter && (
-        <View style={[styles.footer, { backgroundColor: theme.background, borderTopColor: isDark ? '#333' : '#EEE', paddingBottom: insets.bottom + 10 }]}>
+        <View style={[styles.footer, { backgroundColor: isDark ? '#000' : '#F2F2F7', borderTopColor: isDark ? '#333' : '#EEE', paddingBottom: insets.bottom + 10 }]}>
           <TouchableOpacity 
             style={[styles.primaryBtn, { backgroundColor: status?.btnColor || '#8e44ad' }]} 
             onPress={handleExtend}
@@ -281,7 +281,7 @@ const ExpiredJobScreen = () => {
 };
 
 const StatBox = ({ icon, label, value, isDark, halfWidth }: any) => (
-  <View style={[styles.statBox, { backgroundColor: isDark ? '#1C1C1E' : '#F9F9F9', width: halfWidth ? (width - 50) / 2 : width - 40 }]}>
+  <View style={[styles.statBox, { backgroundColor: isDark ? '#0b0b0b' : '#F9F9F9', width: halfWidth ? (width - 50) / 2 : width - 40 }]}>
     <View style={styles.statIconInner}>{icon}</View>
     <View style={{ flex: 1 }}>
       <Text style={styles.statLabelText}>{label}</Text>

@@ -5,6 +5,7 @@ export default function EmployerLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="expired-job" />
       <Stack.Screen name="edit-job" />
+      <Stack.Screen name="my-posts" />
     </Stack>
   );
 }

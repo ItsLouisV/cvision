@@ -10,12 +10,14 @@ import { useColorScheme } from 'react-native';
 import { Colors } from '@/constants/themes';
 import { supabase } from '@/lib/supabase';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const theme = Colors[colorScheme ?? 'light'];
+  const { user, loading: userLoading } = useCurrentUser();
 
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -24,22 +26,19 @@ export default function SettingsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchProfile();
-    }, [])
+      if (user) fetchProfile();
+    }, [user])
   );
 
   const fetchProfile = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        // Lấy profile kèm theo thông tin công ty nếu có
-        const { data } = await supabase
-          .from('user_profiles')
-          .select('*, employers(company_name)')
-          .eq('id', user.id)
-          .single();
-        setProfile(data);
-      }
+      if (!user) return;
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('*, employers(company_name)')
+        .eq('id', user.id)
+        .single();
+      setProfile(data);
     } catch (error) {
       console.error(error);
     } finally {
@@ -86,7 +85,7 @@ export default function SettingsScreen() {
     </TouchableOpacity>
   );
 
-  if (loading) return <ActivityIndicator style={{flex:1}} color="#8e44ad" />;
+  if (loading || userLoading) return <ActivityIndicator style={{flex:1}} color="#8e44ad" />;
   const isEmployer = profile?.role === 'employer';
 
   return (
@@ -127,14 +126,19 @@ export default function SettingsScreen() {
                 color="#007AFF" 
                 onPress={() => router.push('/settings/company')} 
             />
-            <Item icon="newspaper" label="Quản lý tin đăng" color="#34C759" />
+            <Item 
+                icon="newspaper" 
+                label="Quản lý tin đăng" 
+                color="#34C759" 
+                onPress={() => router.push('/employer/my-posts')} 
+            />
             <Item icon="people" label="Tìm kiếm ứng viên AI" color="#FF9500" />
             <Item icon="card" label="Gói dịch vụ & Hóa đơn" color="#5856D6" isLast />
           </>
         ) : (
           <>
             <Item icon="document-attach" label="Hồ sơ & CV" color="#5856D6" onPress={() => router.push('/analysis')} />
-            <Item icon="flash" label="AI Mock Interview" color="#AF52DE" />
+            <Item icon="flash" label="AI Mock Interview" color="#AF52DE" onPress={() => router.push('/(drawer)/(tabs)/activity')} />
             <Item icon="briefcase" label="Việc làm đã ứng tuyển" color="#34C759" onPress={() => router.push('/activity')} />
             <Item icon="analytics" label="Phân tích kỹ năng" color="#FF2D55" isLast />
           </>

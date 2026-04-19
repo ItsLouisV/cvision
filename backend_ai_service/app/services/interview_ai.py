@@ -1,6 +1,6 @@
 from typing import List, Dict, Any
 from app.core.gemini import gemini
-from app.prompts.interview import INTERVIEW_PROMPT
+from app.prompts.interview import STREAM_INTERVIEW_PROMPT
 import logging
 
 
@@ -8,35 +8,45 @@ logger = logging.getLogger(__name__)
 
 
 class InterviewAIService:
-    async def generate_question(self,
-                                job_title: str,
-                                requirements: str,
-                                cv_data: str,
-                                language: str,
-                                user_answers_count: int,
-                                history: List[Dict[str, str]]) -> Dict[str, Any]:
-
+    async def generate_question_stream(self,
+                                       job_title: str,
+                                       requirements: str,
+                                       cv_data: str,
+                                       language: str,
+                                       user_answers_count: int,
+                                       history: List[Dict[str, str]]):
+        """Tạo câu hỏi phỏng vấn tiếp theo dạng streaming"""
         if language == "English":
             lang_instruction = "IMPORTANT: Conduct the entire interview in ENGLISH. All questions and feedback must be in English."
         elif language == "Bilingual":
             lang_instruction = (
-                "IMPORTANT: This is a BILINGUAL interview. "
-                "Primary technical questions should be in ENGLISH. "
-                "You can provide explanations or follow-up clarifications in VIETNAMESE if needed. "
-                "Encourage the candidate to use English but allow Vietnamese for complex technical concepts."
+                "IMPORTANT: This is a BILINGUAL interview."
+                "You MUST always ask the question in the following format:"
+                
+                "Question (EN): <your question in English>\n"
+                "Câu hỏi (VI): <Vietnamese translation of the same question>"
+                
+                "Rules:\n"
+                "- ALWAYS include both English and Vietnamese for EVERY question."
+                "- English version MUST come first."
+                "- Vietnamese must be a correct translation of the English question."
+                "- Keep both concise and natural."
+                "- DO NOT skip the Vietnamese translation."
+                
+                "Candidate instructions:"
+                "- The candidate can answer in either English or Vietnamese."
+                "- You should understand both languages."
             )
         else:  # Mặc định Vietnamese
             lang_instruction = "QUAN TRỌNG: Thực hiện toàn bộ buổi phỏng vấn bằng TIẾNG VIỆT."
 
-        """Tạo câu hỏi phỏng vấn tiếp theo"""
-
         # Format history
         history_text = ""
-        for msg in history[-10:]:  # Chỉ lấy 10 tin nhắn gần nhất
+        for msg in history[-10:]:
             sender = "AI" if msg['sender'] == 'ai' else "Ứng viên"
             history_text += f"{sender}: {msg['content']}\n"
 
-        prompt = INTERVIEW_PROMPT.format(
+        prompt = STREAM_INTERVIEW_PROMPT.format(
             job_title=job_title,
             requirements=requirements,
             cv_data=cv_data,
@@ -45,18 +55,22 @@ class InterviewAIService:
             language_instruction=lang_instruction
         )
 
+        from app.core.config import config
+        
         try:
-            response = await gemini.generate_json(prompt)
-            return response
+            # Fallback DeepSeek stream (Optional, we try Gemini first)
+            # using google.genai async client
+            response_stream = await gemini.client.aio.models.generate_content_stream(
+                model=config.GEMINI_MODEL,
+                contents=prompt
+            )
+            async for chunk in response_stream:
+                if chunk.text:
+                    yield chunk.text
+
         except Exception as e:
-            logger.error(f"Interview question generation error: {e}")
-            # Trả về câu hỏi tùy theo ngôn ngữ
-            default_content = "Please introduce yourself and your experience?" if language == "English" else "Hãy giới thiệu về bản thân và kinh nghiệm của bạn?"
-            return {
-                "type": "question",
-                "content": default_content,
-                "question_number": len(history) // 2 + 1
-            }
+            logger.error(f"Interview question streaming error: {e}")
+            yield "Xin lỗi, đã xảy ra lỗi trong quá trình tạo câu hỏi. Hãy thử lại."
 
     async def evaluate_interview(self,
                                  job_title: str,
@@ -82,8 +96,8 @@ class InterviewAIService:
         1. Điểm kỹ thuật (1-100)
         2. Điểm giao tiếp (1-100)
         3. Điểm tổng thể (1-100)
-        4. Đưa ra chính xác các điểm mạnh
-        5. Đưa ra chính xác các điểm cần cải thiện
+        4. Liệt kê các điểm mạnh thực tế (số lượng linh hoạt tùy theo năng lực thể hiện).
+        5. Liệt kê các điểm cần cải thiện thực tế (số lượng linh hoạt, không gượng ép).
         6. Lời khuyên phát triển
 
         BẮT BUỘC PHẢI TRẢ VỀ CHUẨN JSON VỚI ĐÚNG CÁC TRƯỜNG DỮ LIỆU SAU, KHÔNG THÊM BỚT BẤT KỲ VĂN BẢN NÀO:
