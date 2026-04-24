@@ -94,8 +94,9 @@ export default function NotificationsScreen() {
   useEffect(() => {
     fetchNotifications(0, true);
 
+    const channelName = `notif-realtime-${Date.now()}`;
     const channel = supabase
-      .channel('notif-realtime')
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications' },

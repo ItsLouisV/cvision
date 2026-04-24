@@ -1,11 +1,13 @@
 import React, { useState, useCallback, useRef } from "react";
 import {
   Image,
+  Pressable,
   StyleSheet,
   Text,
   View,
   NativeSyntheticEvent,
   TextLayoutEventData,
+  TouchableOpacity,
 } from "react-native";
 import {
   Bookmark,
@@ -19,7 +21,7 @@ import {
   Verified,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
-import { Pressable as RNGHPressable } from "react-native-gesture-handler";
+// import { Pressable as RNGHPressable } from "react-native-gesture-handler";
 import { ActionRow } from "./ActionRow";
 
 const JOB_TYPE_MAP: Record<string, string> = {
@@ -41,15 +43,14 @@ export const PressableOpacity = ({
   ...props
 }: any) => {
   return (
-    <RNGHPressable
+    <TouchableOpacity
       {...props}
-      style={(state: any) => [
-        typeof style === "function" ? style(state) : style,
-        state.pressed && { opacity: activeOpacity },
-      ]}
+      activeOpacity={activeOpacity}
+      style={style}
+      delayPressIn={0}
     >
       {children}
-    </RNGHPressable>
+    </TouchableOpacity>
   );
 };
 
@@ -111,11 +112,9 @@ export const PostCard = React.memo(
     };
 
     return (
-      <RNGHPressable
-        style={({ pressed }) => [
-          styles.postWrapper,
-          pressed && { opacity: 0.92 },
-        ]}
+      <TouchableOpacity
+        activeOpacity={0.9}
+        style={styles.postWrapper}
         onPress={onPressPost}
       >
         {/* LEFT COLUMN – AVATAR */}
@@ -275,7 +274,7 @@ export const PostCard = React.memo(
             style={{ marginTop: 12, marginLeft: -4 }}
           />
         </View>
-      </RNGHPressable>
+      </TouchableOpacity>
     );
   },
 );

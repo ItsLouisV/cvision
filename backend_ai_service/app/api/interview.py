@@ -10,7 +10,6 @@ from enum import Enum
 class InterviewLanguage(Enum):
     VIETNAMESE = "Vietnamese"
     ENGLISH = "English"
-    BILINGUAL = "Bilingual"
 
 class StartInterviewRequest(BaseModel):
     user_id: str
@@ -87,41 +86,70 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
         active_sessions[session_id] = websocket
 
         async def _run_ai_stream(user_answers_count: int, current_history: list):
+            """
+            Hàm helper chuyên trách việc Stream câu hỏi từ AI và gửi về App qua WebSocket.
+            """
             msg_id = str(uuid.uuid4())
-            await websocket.send_json({"type": "stream_start", "id": msg_id})
-            
             full_text = ""
             is_summary = False
-            
-            stream_gen = interview_ai.generate_question_stream(
-                job_title=final_job_title,
-                requirements=final_requirements,
-                cv_data=cv_text,
-                language=session_language,
-                user_answers_count=user_answers_count,
-                history=current_history
-            )
-            
-            async for chunk in stream_gen:
-                if not full_text and "[SUMMARY]" in chunk:
-                    is_summary = True
-                    chunk = chunk.replace("[SUMMARY]", "").lstrip()
+            max_retries = 3
+
+            for attempt in range(max_retries):
+                try:
+                    # Thông báo cho React Native bắt đầu nhận stream
+                    await websocket.send_json({"type": "stream_start", "id": msg_id})
                     
-                if chunk:
-                    full_text += chunk
-                    await websocket.send_json({"type": "stream_chunk", "id": msg_id, "content": chunk})
-            
-            if "[SUMMARY]" in full_text:
-                is_summary = True
-                full_text = full_text.replace("[SUMMARY]", "").lstrip()
+                    # Khởi tạo luồng stream từ InterviewAIService
+                    stream_gen = interview_ai.generate_question_stream(
+                        job_title=final_job_title,
+                        requirements=final_requirements,
+                        cv_data=cv_text,
+                        language=session_language,
+                        user_answers_count=user_answers_count,
+                        history=current_history
+                    )
 
-            await websocket.send_json({"type": "stream_end", "id": msg_id, "content": full_text})
-            
-            return {
-                "type": "summary" if is_summary else "question",
-                "content": full_text
-            }
+                    # Duyệt qua từng mảnh text trả về từ Gemini
+                    async for chunk in stream_gen:
+                        if not full_text and "[SUMMARY]" in chunk:
+                            is_summary = True
+                            chunk = chunk.replace("[SUMMARY]", "").lstrip()
+                        
+                        if chunk:
+                            full_text += chunk
+                            await websocket.send_json({
+                                "type": "stream_chunk", 
+                                "id": msg_id, 
+                                "content": chunk
+                            })
+                    
+                    # Nếu chạy đến đây không lỗi thì thoát vòng lặp retry
+                    break 
 
+                except Exception as e:
+                    # Nếu gặp lỗi 503 (quá tải), đợi vài giây rồi thử lại
+                    if "503" in str(e) and attempt < max_retries - 1:
+                        await asyncio.sleep(2 * (attempt + 1))
+                        continue
+                    
+                    # Nếu lỗi khác hoặc hết lượt thử, báo lỗi về App
+                    await websocket.send_json({
+                        "type": "error", 
+                        "message": "AI đang bận, Louis vui lòng nhấn Thử lại nhé."
+                    })
+                    raise e
+
+                    # Kiểm tra lại một lần nữa ký hiệu kết thúc buổi phỏng vấn
+                    if "[SUMMARY]" in full_text:
+                        is_summary = True
+                        full_text = full_text.replace("[SUMMARY]", "").lstrip()
+
+                    await websocket.send_json({"type": "stream_end", "id": msg_id, "content": full_text})
+                    
+                    return {
+                        "type": "summary" if is_summary else "question",
+                        "content": full_text
+                    }
         # Gửi tin nhắn chào mừng
         await websocket.send_json({
             "type": "system",

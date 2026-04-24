@@ -1,7 +1,8 @@
 import { Tabs } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Platform, View } from "react-native";
+import { ActivityIndicator, Platform, View, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { globalScrollY } from "@/utils/tabBarAnimation";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { useColorScheme } from "@/components/useColorScheme";
@@ -47,6 +48,21 @@ export default function TabLayout() {
   const TAB_BAR_HEIGHT =
     Platform.OS === "ios" && insets.bottom > 0 ? 60 + insets.bottom : 68;
 
+  // ─── Animation for hiding Tab Bar ───
+  const scrollYPositive = globalScrollY.interpolate({
+    inputRange: [0, 0.7],
+    outputRange: [0, 1],
+    extrapolateLeft: "clamp",
+  });
+
+  const clampedScrollY = Animated.diffClamp(scrollYPositive, 0, TAB_BAR_HEIGHT + 20);
+  
+  const tabBarTranslateY = clampedScrollY.interpolate({
+    inputRange: [0, TAB_BAR_HEIGHT + 20],
+    outputRange: [0, TAB_BAR_HEIGHT + 20], // Translate DOWN by height
+    extrapolate: "clamp",
+  });
+
   if (loading) {
     return (
       <View
@@ -80,6 +96,11 @@ export default function TabLayout() {
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: colorScheme === "dark" ? 0.2 : 0.05,
           shadowRadius: 10,
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          transform: [{ translateY: tabBarTranslateY as any }],
         },
       }}
     >

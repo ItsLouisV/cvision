@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  ScrollView,
   Image,
   Linking,
   Alert,
@@ -63,6 +64,14 @@ export default function ManageCandidatesScreen() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewFileName, setPreviewFileName] = useState<string>("");
   const { user } = useCurrentUser();
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+
+  const statuses = [
+    { id: "all", label: "Tất cả", count: 0 },
+    { id: "pending", label: "Chờ duyệt", count: 0 },
+    { id: "accepted", label: "Đã nhận", count: 0 },
+    { id: "rejected", label: "Từ chối", count: 0 },
+  ];
 
   const {
     data: applications = [],
@@ -157,6 +166,18 @@ export default function ManageCandidatesScreen() {
     },
     enabled: !!user,
   });
+
+  const filteredApplications = applications.filter((app: any) => 
+    selectedStatus === "all" ? true : app.status === selectedStatus
+  );
+
+  // Tính toán số lượng cho từng status
+  const statusCounts = {
+    all: applications.length,
+    pending: applications.filter((a: any) => a.status === "pending").length,
+    accepted: applications.filter((a: any) => a.status === "accepted").length,
+    rejected: applications.filter((a: any) => a.status === "rejected").length,
+  };
 
   const handleUpdateStatus = async (
     appId: string,
@@ -338,13 +359,45 @@ export default function ManageCandidatesScreen() {
         <View style={{ width: 40 }} />
       </View>
 
+      <View style={styles.filterContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScroll}
+        >
+          {statuses.map((s) => (
+            <TouchableOpacity
+              key={s.id}
+              style={[
+                styles.filterTab,
+                selectedStatus === s.id && styles.filterTabActive,
+                { borderColor: isDark ? "#2C2C2E" : "#E5E5EA" }
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSelectedStatus(s.id);
+              }}
+            >
+              <Text
+                style={[
+                  styles.filterLabel,
+                  { color: selectedStatus === s.id ? "#FFF" : (isDark ? "#AAA" : "#666") }
+                ]}
+              >
+                {s.label} ({statusCounts[s.id as keyof typeof statusCounts]})
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#8e44ad" />
         </View>
       ) : (
         <FlatList
-          data={applications}
+          data={filteredApplications}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[
             styles.listContent,
@@ -708,4 +761,26 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   emptySub: { textAlign: "center", color: "#8E8E93", lineHeight: 22 },
+  filterContainer: {
+    paddingVertical: 12,
+  },
+  filterScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  filterTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    backgroundColor: "transparent",
+  },
+  filterTabActive: {
+    backgroundColor: "#8e44ad",
+    borderColor: "#8e44ad",
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });

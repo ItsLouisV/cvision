@@ -40,7 +40,7 @@ export default function CreateInterviewScreen() {
   const [cvContent, setCvContent] = useState<any>(null);
 
   const levels = ["Intern", "Fresher", "Junior", "Middle", "Senior"];
-  const languages = ["Vietnamese", "English", "Bilingual"];
+  const languages = ["Vietnamese", "English"];
 
   useEffect(() => {
     const fetchCvData = async () => {

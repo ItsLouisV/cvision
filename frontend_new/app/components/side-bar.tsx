@@ -73,7 +73,7 @@ const SidebarView = ({ onClose }: SidebarViewProps) => {
   };
 
   const dynamicStyles = {
-    container: { backgroundColor: theme.background },
+    container: { backgroundColor: isDark ? "#141414ff" : "#F2F2F7" },
     text: { color: theme.text },
     border: { borderColor: isDark ? "#333" : "#EEE" },
     card: { backgroundColor: isDark ? "#1A1A1A" : "#FFF" },

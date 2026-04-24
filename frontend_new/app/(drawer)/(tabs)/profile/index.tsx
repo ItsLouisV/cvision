@@ -139,7 +139,7 @@ export default function SettingsScreen() {
           <>
             <Item icon="document-attach" label="Hồ sơ & CV" color="#5856D6" onPress={() => router.push('/analysis')} />
             <Item icon="flash" label="AI Mock Interview" color="#AF52DE" onPress={() => router.push('/(drawer)/(tabs)/activity')} />
-            <Item icon="briefcase" label="Việc làm đã ứng tuyển" color="#34C759" onPress={() => router.push('/activity')} />
+            <Item icon="briefcase" label="Việc làm đã ứng tuyển" color="#34C759" onPress={() => router.push('/user/applied-jobs')} />
             <Item icon="analytics" label="Phân tích kỹ năng" color="#FF2D55" isLast />
           </>
         )}

@@ -19,8 +19,15 @@ import { toastConfig } from "@/components/ui/toast-config";
 import Toast from "react-native-toast-message";
 import { AuthProvider } from "@/contexts/AuthContext";
 
-const queryClient = new QueryClient();
-
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 1000 * 60 * 5, // 5 minutes cache
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 

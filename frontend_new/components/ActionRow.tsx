@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, View, ViewStyle, StyleProp } from "react-native";
+import { StyleSheet, Text, View, ViewStyle, StyleProp, TouchableOpacity } from "react-native";
 import {
   Bookmark,
   Heart,
@@ -9,7 +9,7 @@ import {
   Share2,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
-import { Pressable as RNGHPressable } from "react-native-gesture-handler";
+// import { Pressable as RNGHPressable } from "react-native-gesture-handler";
 
 /**
  * Shared action row used in PostCard (feed) and JobDetail.
@@ -20,15 +20,14 @@ import { Pressable as RNGHPressable } from "react-native-gesture-handler";
 
 // ── Pressable with opacity ──
 const PressableOpacity = ({ children, style, activeOpacity = 0.7, ...props }: any) => (
-  <RNGHPressable
+  <TouchableOpacity
     {...props}
-    style={(state: any) => [
-      typeof style === "function" ? style(state) : style,
-      state.pressed && { opacity: activeOpacity },
-    ]}
+    activeOpacity={activeOpacity}
+    style={style}
+    delayPressIn={0}
   >
     {children}
-  </RNGHPressable>
+  </TouchableOpacity>
 );
 
 export interface ActionRowProps {

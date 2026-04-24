@@ -59,7 +59,7 @@ export default function DrawerLayout() {
           backgroundColor: theme.background,
         },
         swipeEnabled: canSwipe,
-        swipeEdgeWidth: Dimensions.get("window").width,
+        swipeEdgeWidth: 0,
       }}
       drawerContent={(props) => (
         <DrawerContentWithHaptic navigation={props.navigation} />

@@ -7,17 +7,29 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
-  SafeAreaView,
+  ScrollView,
   Image,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
 import { Colors } from "@/constants/themes";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { Briefcase, ArrowLeft, Building2, ChevronLeft } from "lucide-react-native";
+import {
+  Briefcase,
+  Building2,
+  ChevronLeft,
+  MapPin,
+  CircleDollarSign,
+  Clock,
+  Calendar,
+  CheckCircle2,
+} from "lucide-react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { formatSalary, formatTime } from "@/utils/formatters";
+import { LinearGradient } from "expo-linear-gradient";
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   const dd = String(date.getDate()).padStart(2, "0");
@@ -30,15 +42,15 @@ const getStatusColor = (status: string) => {
   switch (status?.toLowerCase()) {
     case "accepted":
     case "approved":
-      return { bg: "#d4edda", text: "#155724", label: "Đã trúng tuyển" };
+      return { bg: "#9ef5cf", text: "#067d5e", label: "Đã duyệt", icon: "check-circle" };
     case "rejected":
-      return { bg: "#f8d7da", text: "#721c24", label: "Từ chối" };
+      return { bg: "#f1b0b0", text: "#c12222", label: "Bị từ chối", icon: "x-circle" };
     case "processing":
     case "reviewed":
-      return { bg: "#cce5ff", text: "#004085", label: "Đã xem xét" };
+      return { bg: "#E1EFFE", text: "#1E429F", label: "Đã xem xét", icon: "eye" };
     case "pending":
     default:
-      return { bg: "#fff3cd", text: "#856404", label: "Đang chờ xử lý" };
+      return { bg: "#f0e0a1", text: "#ad5118", label: "Đang chờ xử lý", icon: "clock" };
   }
 };
 
@@ -48,6 +60,15 @@ const AppliedJobsScreen = () => {
   const isDark = colorScheme === "dark";
   const router = useRouter();
   const { user } = useCurrentUser();
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+
+  const statuses = [
+    { id: "all", label: "Tất cả" },
+    { id: "pending", label: "Đang chờ" },
+    { id: "accepted", label: "Đã duyệt" },
+    { id: "reviewed", label: "Đã xem xét" },
+    { id: "rejected", label: "Từ chối" },
+  ];
 
   const { data: applications = [], isLoading, isRefetching, refetch } = useQuery({
     queryKey: ["applied_jobs", user?.id],
@@ -65,9 +86,23 @@ const AppliedJobsScreen = () => {
             id,
             title,
             is_active,
+            salary_from,
+            salary_to,
+            currency,
+            salary_unit,
+            location,
+            job_type,
+            category,
+            created_at,
             employers (
               company_name,
-              company_logo
+              company_logo,
+              is_verified
+            ),
+            user_profiles (
+              id,
+              full_name,
+              avatar_url
             )
           )
         `)
@@ -79,6 +114,20 @@ const AppliedJobsScreen = () => {
     },
     enabled: !!user,
   });
+
+  const filteredApplications = applications.filter((app: any) => {
+    if (selectedStatus === "all") return true;
+    if (selectedStatus === "reviewed") return app.status === "reviewed" || app.status === "processing";
+    return app.status === selectedStatus;
+  });
+
+  const statusCounts = {
+    all: applications.length,
+    pending: applications.filter((a: any) => a.status === "pending").length,
+    accepted: applications.filter((a: any) => a.status === "accepted" || a.status === "approved").length,
+    reviewed: applications.filter((a: any) => a.status === "reviewed" || a.status === "processing").length,
+    rejected: applications.filter((a: any) => a.status === "rejected").length,
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
@@ -116,13 +165,45 @@ const AppliedJobsScreen = () => {
         <View style={{ width: 40 }} />
       </View>
 
+      <View style={styles.filterContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScroll}
+        >
+          {statuses.map((s) => (
+            <TouchableOpacity
+              key={s.id}
+              style={[
+                styles.filterTab,
+                selectedStatus === s.id && styles.filterTabActive,
+                { borderColor: isDark ? "#2C2C2E" : "#E5E5EA" }
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSelectedStatus(s.id);
+              }}
+            >
+              <Text
+                style={[
+                  styles.filterLabel,
+                  { color: selectedStatus === s.id ? "#FFF" : (isDark ? "#AAA" : "#666") }
+                ]}
+              >
+                {s.label} ({statusCounts[s.id as keyof typeof statusCounts]})
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#8e44ad" />
         </View>
       ) : (
         <FlatList
-          data={applications}
+          data={filteredApplications}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[
             styles.listContent,
@@ -141,51 +222,99 @@ const AppliedJobsScreen = () => {
             if (!job) return null;
             
             const employer = Array.isArray(job.employers) ? job.employers[0] : job.employers;
-            const logo = employer?.company_logo;
+            const recruiter = Array.isArray(job.user_profiles) ? job.user_profiles[0] : job.user_profiles;
+            
+            const recruiterAvatar = recruiter?.avatar_url || 
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(recruiter?.full_name || employer?.company_name || "U")}&background=8e44ad&color=fff`;
+            
+            const companyLogo = employer?.company_logo;
             const companyName = employer?.company_name || "Công ty ẩn danh";
             const statusStyle = getStatusColor(item.status);
+            
+            const salary = formatSalary(
+              job.salary_from,
+              job.salary_to,
+              job.currency,
+              job.salary_unit
+            );
 
             return (
               <TouchableOpacity
                 style={[
                   styles.card,
-                  { backgroundColor: isDark ? "#1C1C1E" : "#FFF", borderColor: isDark ? "#2C2C2E" : "#E5E5EA" },
+                  { backgroundColor: isDark ? "#1C1C1E" : "#FFF", borderColor: isDark ? "#2C2C2E" : "#F2F2F7" },
                 ]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   router.push(`/jobs/${job.id}`);
                 }}
-                activeOpacity={0.7}
+                activeOpacity={0.9}
               >
-                <View style={styles.cardHeader}>
-                  <View style={styles.companyInfo}>
-                    {logo ? (
-                      <Image source={{ uri: logo }} style={styles.logo} />
-                    ) : (
-                      <View style={[styles.logo, styles.logoPlaceholder]}>
-                        <Building2 size={20} color="#888" />
+                <View style={styles.cardTop}>
+                  <View style={styles.recruiterSection}>
+                    <Image source={{ uri: recruiterAvatar }} style={styles.recruiterAvatar} />
+                    {companyLogo && (
+                      <View style={styles.miniLogoContainer}>
+                        <Image source={{ uri: companyLogo }} style={styles.miniLogo} />
                       </View>
                     )}
-                    <View style={styles.titleWrap}>
+                  </View>
+                  
+                  <View style={styles.mainInfo}>
+                    <View style={styles.titleRow}>
                       <Text style={[styles.jobTitle, { color: theme.text }]} numberOfLines={1}>
                         {job.title}
                       </Text>
-                      <Text style={[styles.companyName, { color: isDark ? "#AAA" : "#666" }]} numberOfLines={1}>
-                        {companyName}
-                      </Text>
+                      {employer?.is_verified && (
+                        <CheckCircle2 size={14} color="#00BAFF" style={{ marginLeft: 4 }} />
+                      )}
                     </View>
+                    <Text style={[styles.companyNameText, { color: isDark ? "#AAA" : "#666" }]} numberOfLines={1}>
+                      {companyName} • {recruiter?.full_name || "Nhà tuyển dụng"}
+                    </Text>
                   </View>
-                </View>
 
-                <View style={styles.cardFooter}>
-                  <Text style={styles.dateText}>
-                    Nộp: {formatDate(item.created_at)}
-                  </Text>
                   <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
                     <Text style={[styles.statusText, { color: statusStyle.text }]}>
                       {statusStyle.label}
                     </Text>
                   </View>
+                </View>
+
+                <View style={styles.cardDetails}>
+                  <View style={styles.detailItem}>
+                    <MapPin size={14} color={isDark ? "#888" : "#666"} />
+                    <Text style={[styles.detailText, { color: isDark ? "#AAA" : "#666" }]} numberOfLines={1}>
+                      {job.location || "Toàn quốc"}
+                    </Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <CircleDollarSign size={14} color={isDark ? "#888" : "#666"} />
+                    <Text style={[styles.detailText, { color: isDark ? "#AAA" : "#666" }]}>
+                      {salary}
+                    </Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <Clock size={14} color={isDark ? "#888" : "#666"} />
+                    <Text style={[styles.detailText, { color: isDark ? "#AAA" : "#666" }]}>
+                      {job.job_type || "Toàn thời gian"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardFooter}>
+                  <View style={styles.footerLeft}>
+                    <Calendar size={12} color="#8E8E93" />
+                    <Text style={styles.dateText}>
+                      Đã nộp {formatTime(item.created_at)}
+                    </Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.viewDetailBtn}
+                    onPress={() => router.push(`/jobs/${job.id}`)}
+                  >
+                    <Text style={styles.viewDetailText}>Chi tiết</Text>
+                  </TouchableOpacity>
                 </View>
               </TouchableOpacity>
             );
@@ -215,8 +344,9 @@ const styles = StyleSheet.create({
     marginLeft: -8,
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
+    letterSpacing: -0.5,
   },
   center: {
     flex: 1,
@@ -225,71 +355,124 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+    paddingBottom: 32,
   },
   card: {
     padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
+    borderRadius: 20,
+    marginBottom: 16,
     borderWidth: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  cardHeader: {
+  cardTop: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     marginBottom: 16,
   },
-  companyInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  logo: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
+  recruiterSection: {
+    position: "relative",
     marginRight: 12,
   },
-  logoPlaceholder: {
+  recruiterAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: "#F2F2F7",
-    justifyContent: "center",
-    alignItems: "center",
   },
-  titleWrap: {
+  miniLogoContainer: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    backgroundColor: "#FFF",
+    borderRadius: 6,
+    padding: 1.5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  miniLogo: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+  },
+  mainInfo: {
     flex: 1,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
   },
   jobTitle: {
     fontSize: 16,
     fontWeight: "700",
-    marginBottom: 4,
+    maxWidth: "90%",
   },
-  companyName: {
-    fontSize: 14,
+  companyNameText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  cardDetails: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "rgba(150,150,150,0.1)",
+    marginBottom: 12,
+  },
+  detailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  detailText: {
+    fontSize: 13,
+    fontWeight: "500",
   },
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(150,150,150,0.2)",
+  },
+  footerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   dateText: {
-    fontSize: 13,
-    color: "#8E8E93",
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
     fontSize: 12,
-    fontWeight: "600",
+    color: "#8E8E93",
+    fontWeight: "500",
+  },
+  viewDetailBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "rgba(142, 68, 173, 0.1)",
+  },
+  viewDetailText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#8e44ad",
   },
   emptyContainer: {
     flex: 1,
@@ -307,26 +490,54 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "800",
     marginBottom: 10,
     textAlign: "center",
   },
   emptySub: {
     textAlign: "center",
     color: "#8E8E93",
+    fontSize: 15,
     lineHeight: 22,
-    marginBottom: 24,
+    marginBottom: 28,
   },
   discoverBtn: {
     backgroundColor: "#8e44ad",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 20,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 24,
+    shadowColor: "#8e44ad",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   discoverText: {
     color: "#FFF",
-    fontWeight: "700",
+    fontWeight: "800",
     fontSize: 15,
+  },
+  filterContainer: {
+    paddingVertical: 12,
+  },
+  filterScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  filterTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    backgroundColor: "transparent",
+  },
+  filterTabActive: {
+    backgroundColor: "#8e44ad",
+    borderColor: "#8e44ad",
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

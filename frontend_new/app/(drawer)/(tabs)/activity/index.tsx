@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: 20,
     paddingTop: Platform.OS === "ios" ? 140 : 120, // Chừa chỗ cho header blur
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   mainActionCard: {
     flexDirection: "row",

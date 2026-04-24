@@ -192,6 +192,15 @@ export const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
 
       if (!user) throw new Error("Chưa đăng nhập");
 
+      if (!fullName || !email || !phone) {
+        Toast.show({
+          type: "error",
+          text1: "Thiếu thông tin",
+          text2: "Vui lòng điền đầy đủ thông tin",
+        });
+        return;
+      }
+
       const { error } = await supabase.from("applications").insert([
         {
           job_id: jobId,

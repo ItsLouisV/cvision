@@ -215,8 +215,8 @@ const styles = StyleSheet.create({
   infoText: { color: "#8E8E93", fontSize: 13, marginLeft: 8 },
   
   uploadBtn: {
-    position: "absolute", bottom: 40, width: width - 48, height: 60,
-    borderRadius: 20, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    position: "absolute", bottom: 150, width: width - 108, height: 50,
+    borderRadius: 40, flexDirection: "row", alignItems: "center", justifyContent: "center",
     shadowColor: "#8e44ad", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8
   },
   uploadBtnText: { color: "#fff", fontSize: 18, fontWeight: "800" },

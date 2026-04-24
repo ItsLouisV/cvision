@@ -18,25 +18,6 @@ class InterviewAIService:
         """Tạo câu hỏi phỏng vấn tiếp theo dạng streaming"""
         if language == "English":
             lang_instruction = "IMPORTANT: Conduct the entire interview in ENGLISH. All questions and feedback must be in English."
-        elif language == "Bilingual":
-            lang_instruction = (
-                "IMPORTANT: This is a BILINGUAL interview."
-                "You MUST always ask the question in the following format:"
-                
-                "Question (EN): <your question in English>\n"
-                "Câu hỏi (VI): <Vietnamese translation of the same question>"
-                
-                "Rules:\n"
-                "- ALWAYS include both English and Vietnamese for EVERY question."
-                "- English version MUST come first."
-                "- Vietnamese must be a correct translation of the English question."
-                "- Keep both concise and natural."
-                "- DO NOT skip the Vietnamese translation."
-                
-                "Candidate instructions:"
-                "- The candidate can answer in either English or Vietnamese."
-                "- You should understand both languages."
-            )
         else:  # Mặc định Vietnamese
             lang_instruction = "QUAN TRỌNG: Thực hiện toàn bộ buổi phỏng vấn bằng TIẾNG VIỆT."
 

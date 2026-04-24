@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     opacity: 0.8,
   },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 140, paddingBottom: 60 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 140, paddingBottom: 150 },
 
   scoreCard: {
     padding: 24,
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
   },
   itemText: { fontSize: 15, lineHeight: 22, flex: 1, fontWeight: "500" },
 
-  reUploadBtn: { padding: 20, alignItems: "center", marginTop: 10 },
+  reUploadBtn: { padding: 20, alignItems: "center", marginTop: 10, borderWidth: 1, borderColor: "#8e44ad", borderRadius: 20 },
   reUploadText: { color: "#8e44ad", fontWeight: "800", fontSize: 16 },
 
   emptyState: { alignItems: "center", marginTop: 80 },
