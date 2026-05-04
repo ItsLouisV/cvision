@@ -8,8 +8,9 @@ import {
   Text,
   TouchableOpacity,
   View,
+  StatusBar,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors } from "@/constants/themes";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -24,6 +25,7 @@ const LovedPostsScreen = () => {
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
   const { user } = useCurrentUser();
+  const insets = useSafeAreaInsets();
 
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,37 +93,48 @@ const LovedPostsScreen = () => {
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <HeartOff size={64} color={isDark ? "#333" : "#CCC"} />
+      <View style={[styles.emptyIconWrapper, { backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7" }]}>
+        <HeartOff size={48} color={isDark ? "#444" : "#AAA"} strokeWidth={1.5} />
+      </View>
+      <Text style={[styles.emptyTitle, { color: theme.text }]}>
+        Chưa có bài viết yêu thích
+      </Text>
       <Text style={[styles.emptyText, { color: isDark ? "#888" : "#666" }]}>
-        Bạn chưa thích bài viết nào.
+        Những bài viết bạn thả tim sẽ xuất hiện tại đây để bạn dễ dàng tìm lại.
       </Text>
       <TouchableOpacity
         style={styles.exploreBtn}
         onPress={() => router.back()}
         activeOpacity={0.8}
       >
-        <Text style={styles.exploreBtnText}>Quay lại</Text>
+        <Text style={styles.exploreBtnText}>Khám phá ngay</Text>
       </TouchableOpacity>
     </View>
   );
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.background }]}
-      edges={["top"]}
-    >
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      
       {/* HEADER */}
       <View
         style={[
           styles.header,
-          { borderBottomColor: isDark ? "#222" : "#F0F0F0" },
+          { 
+            paddingTop: insets.top,
+            backgroundColor: theme.background,
+            borderBottomColor: isDark ? "#1C1C1E" : "#F2F2F7" 
+          },
         ]}
       >
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ChevronLeft size={28} color={theme.text} />
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={[styles.backBtn, { backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7" }]}
+        >
+          <ChevronLeft size={24} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>
-          Bài viết đã thích
+          Yêu thích
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -153,7 +166,7 @@ const LovedPostsScreen = () => {
           refreshing={refreshing}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -166,30 +179,66 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    height: 56,
-    borderBottomWidth: 0.5,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
   },
-  headerTitle: { fontSize: 18, fontWeight: "700" },
-  backBtn: { padding: 4 },
-  listPadding: { paddingBottom: 40, paddingTop: 10 },
+  headerTitle: { 
+    fontSize: 20, 
+    fontWeight: "800",
+    letterSpacing: -0.5,
+  },
+  backBtn: { 
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  listPadding: { 
+    paddingBottom: 40, 
+    paddingTop: 12,
+  },
   emptyContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 100,
     paddingHorizontal: 40,
+    paddingBottom: 100,
+  },
+  emptyIconWrapper: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    marginBottom: 12,
+    textAlign: "center",
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 15,
     textAlign: "center",
-    marginTop: 20,
-    marginBottom: 24,
+    lineHeight: 22,
+    marginBottom: 32,
   },
   exploreBtn: {
     backgroundColor: "#8e44ad",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 25,
+    shadowColor: "#8e44ad",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  exploreBtnText: { color: "#FFF", fontWeight: "700" },
+  exploreBtnText: { 
+    color: "#FFF", 
+    fontWeight: "800",
+    fontSize: 16,
+  },
 });

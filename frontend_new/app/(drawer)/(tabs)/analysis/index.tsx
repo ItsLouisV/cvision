@@ -217,7 +217,7 @@ export default function CVAnalysisScreen() {
           <View style={styles.innerLoading}>
             <ActivityIndicator size="large" color={accentColor} />
             <Text style={{ marginTop: 20, color: "#8E8E93", fontWeight: "600" }}>
-              AI đang đọc dữ liệu...
+              Loading...
             </Text>
           </View>
         ) : analysis ? (

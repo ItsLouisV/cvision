@@ -9,6 +9,7 @@ import {
   Link2,
   MapPin,
   MessageCircle,
+  Plus,
   RefreshCw,
   Search,
   Send,
@@ -82,7 +83,7 @@ const FeedView = ({ onPressMenu, activeTab, onChangeTab }: FeedViewProps) => {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
-  const { user } = useCurrentUser();
+  const { user, profile } = useCurrentUser();
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -911,6 +912,19 @@ const FeedView = ({ onPressMenu, activeTab, onChangeTab }: FeedViewProps) => {
         </View>
       </PagerView>
 
+      {/* FAB cho Nhà tuyển dụng */}
+      {/* {profile?.role === "employer" && ( */}
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: "#8e44ad" }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push("/modal/create-post")}}
+          activeOpacity={0.8}
+        >
+          <Plus size={32} color="#FFF" strokeWidth={2.5} />
+        </TouchableOpacity>
+      {/* )} */}
+
       {/* ── POPUP MENUS ── */}
       <PostMenu
         visible={menuVisible}
@@ -1051,6 +1065,22 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 16,
     fontWeight: "700",
+  },
+  fab: {
+    position: "absolute",
+    bottom: 30,
+    right: 20,
+    width: 46,
+    height: 46,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#8e44ad",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+    zIndex: 100,
   },
 });
 

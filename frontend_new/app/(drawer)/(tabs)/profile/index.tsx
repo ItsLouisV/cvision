@@ -85,7 +85,6 @@ export default function SettingsScreen() {
     </TouchableOpacity>
   );
 
-  if (loading || userLoading) return <ActivityIndicator style={{flex:1}} color="#8e44ad" />;
   const isEmployer = profile?.role === 'employer';
 
   return (
@@ -99,26 +98,45 @@ export default function SettingsScreen() {
       <TouchableOpacity 
         style={[styles.profileCard, { backgroundColor: isDark ? '#1C1C1E' : '#FFF' }]}
         onPress={() => router.push('/settings/account')}
+        disabled={loading}
       >
-        <Image 
-          source={{ uri: profile?.avatar_url || 'https://ui-avatars.com/api/?name=' + profile?.full_name }} 
-          style={styles.avatar} 
-        />
-        <View style={styles.profileInfo}>
-          <Text style={[styles.name, { color: theme.text }]}>{profile?.full_name || 'CVision User'}</Text>
-          <Text style={styles.subText}>{isEmployer ? (profile?.employers?.[0]?.company_name || profile?.email) : profile?.email}</Text>
-          <View style={[styles.roleTag, { backgroundColor: isEmployer ? '#E3F2FD' : '#F3E5F5' }]}>
-            <Text style={[styles.roleTagText, { color: isEmployer ? '#1976D2' : '#8E24AA' }]}>
-               {isEmployer ? 'Premium Recruiter' : 'AI Candidate'}
-            </Text>
+        {loading ? (
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+             <View style={[styles.avatar, { backgroundColor: isDark ? '#333' : '#E5E5EA', justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="small" color="#8e44ad" />
+             </View>
+             <View style={styles.profileInfo}>
+                <View style={{ height: 20, width: '60%', backgroundColor: isDark ? '#333' : '#F2F2F7', borderRadius: 4 }} />
+                <View style={{ height: 14, width: '40%', backgroundColor: isDark ? '#333' : '#F2F2F7', borderRadius: 4, marginTop: 8 }} />
+             </View>
           </View>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+        ) : (
+          <>
+            <Image 
+              source={{ uri: profile?.avatar_url || 'https://ui-avatars.com/api/?name=' + profile?.full_name }} 
+              style={styles.avatar} 
+            />
+            <View style={styles.profileInfo}>
+              <Text style={[styles.name, { color: theme.text }]}>{profile?.full_name || 'CVision User'}</Text>
+              <Text style={styles.subText}>{isEmployer ? (profile?.employers?.[0]?.company_name || profile?.email) : profile?.email}</Text>
+              <View style={[styles.roleTag, { backgroundColor: isEmployer ? '#E3F2FD' : '#F3E5F5' }]}>
+                <Text style={[styles.roleTagText, { color: isEmployer ? '#1976D2' : '#8E24AA' }]}>
+                  {isEmployer ? 'Premium Recruiter' : 'AI Candidate'}
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+          </>
+        )}
       </TouchableOpacity>
 
       {/* 2. CHỨC NĂNG RIÊNG THEO ROLE */}
-      <Section title={isEmployer ? "Doanh nghiệp & Tuyển dụng" : "Sự nghiệp & AI"}>
-        {isEmployer ? (
+      <Section title={loading ? "Đang tải dữ liệu..." : (isEmployer ? "Doanh nghiệp & Tuyển dụng" : "Sự nghiệp & AI")}>
+        {loading ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <ActivityIndicator color="#8e44ad" />
+          </View>
+        ) : isEmployer ? (
           <>
             <Item 
                 icon="business" 
@@ -147,7 +165,14 @@ export default function SettingsScreen() {
 
       {/* 3. CHỨC NĂNG CHUNG */}
       <Section title="Trang cá nhân">
-        <Item icon="person-circle-sharp" label="Truy cập trang cá nhân" color="#FF2D55" isLast onPress={() => router.push(`/profile/${profile?.id}` as any)} />
+        <Item 
+          icon="person-circle-sharp" 
+          label="Truy cập trang cá nhân" 
+          color="#FF2D55" 
+          isLast 
+          onPress={loading ? undefined : () => router.push(`/profile/${profile?.id}` as any)} 
+          rightElement={loading ? <ActivityIndicator size="small" /> : undefined}
+        />
       </Section>
 
       <Section title="Bảo mật & Cá nhân hóa">

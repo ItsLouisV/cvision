@@ -12,6 +12,8 @@ from pydantic import BaseModel
 from app.core.supabase import supabase
 from app.core.gemini import gemini
 from app.prompts.job_matching import JOB_MATCHING_PROMPT
+from app.rules.scoring_rules import JobMatchingRules
+from app.utils.ai_audit import ai_audit
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 logger = logging.getLogger(__name__)
@@ -153,22 +155,40 @@ async def apply_job(job_id: str, user_id: str, cv_id: str, cover_letter: str = N
             cv_analysis=json.dumps(cv.data['parsed_data'], default=str),
             job_details=json.dumps(job.data, default=str)
         )
-        ai_analysis = await gemini.generate_json(prompt)
-        final_score = ai_analysis.get('match_score', 0)
+        ai_raw = await gemini.generate_json(prompt)
+
+        # ── Áp dụng Business Rules — AI chỉ gợi ý, recruiter quyết định cuối ──
+        # Lấy danh sách kỹ năng bắt buộc từ job (nếu recruiter có đặt)
+        must_have_skills = job.data.get('must_have_skills', [])
+        final_analysis = JobMatchingRules.apply_business_rules(
+            ai_raw.copy(), must_have_skills
+        )
+        final_score = final_analysis.get('match_score', 0)
+
+        # ── Ghi Audit Log ──
+        ai_audit.log(
+            action="job_match",
+            entity_id=f"{user_id}:{job_id}",
+            ai_raw_output=ai_raw,
+            final_output=final_analysis,
+            was_adjusted=(ai_raw.get('match_score') != final_score),
+            extra={"job_title": job.data.get('title'), "must_have_skills": must_have_skills}
+        )
 
         # 1. Lưu đơn ứng tuyển
         application_data = {
             "job_id": job_id, "user_id": user_id, "cv_id": cv_id,
             "status": "pending", "ai_match_score": final_score,
-            "ai_feedback": ai_analysis
+            "ai_feedback": final_analysis  # Lưu full analysis bao gồm recommendation
         }
         res = supabase_client.table('applications').insert(application_data).execute()
 
         # 2. Thông báo cho Nhà tuyển dụng (Type: status)
+        recommendation_label = final_analysis.get('ai_recommendation', 'REVIEW')
         notif_employer = {
             "user_id": job.data['user_id'],
-            "title": "📬 Ứng viên mới!",
-            "content": f"Một ứng viên vừa nộp đơn vào vị trí {job.data['title']}. Độ hợp: {final_score}%",
+            "title": "📢 Ứng viên mới!",
+            "content": f"Một ứng viên vừa nộp đơn vào vị trí {job.data['title']}. AI đánh giá: {recommendation_label} ({final_score}%). Vui lòng xem xét hồ sơ.",
             "data": {"type": "status", "job_id": job_id, "application_id": res.data[0]['id']},
             "type": "status"
         }
@@ -184,7 +204,7 @@ async def apply_job(job_id: str, user_id: str, cv_id: str, cover_letter: str = N
 
         supabase_client.table('notifications').insert([notif_employer, notif_candidate]).execute()
 
-        return {"success": True, "match_score": final_score}
+        return {"success": True, "match_score": final_score, "ai_recommendation": recommendation_label}
     except Exception as e:
         logger.error(f"Lỗi ứng tuyển: {e}")
         raise HTTPException(500, str(e))

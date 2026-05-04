@@ -9,7 +9,7 @@ import axios from "axios";
 import { useRouter, Stack, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
-import CurrencyInput from 'react-native-currency-input';
+import CurrencyInput from "react-native-currency-input";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   ActivityIndicator,
@@ -60,6 +60,8 @@ const CreateJobPost = () => {
   const [fetchingEmployer, setFetchingEmployer] = useState(true);
   const [employerId, setEmployerId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState("");
+  const [permissionDenied, setPermissionDenied] = useState(false);
+  const [deniedReason, setDeniedReason] = useState<"role" | "profile">("role");
   const { user } = useCurrentUser();
 
   // States dữ liệu Form
@@ -78,12 +80,12 @@ const CreateJobPost = () => {
   const [expiredAt, setExpiredAt] = useState(() => {
     const date = new Date();
     date.setDate(date.getDate() + 30); // Cộng 30 ngày
-    date.setHours(23, 59, 0, 0);       // Đưa về cuối ngày cho đẹp
+    date.setHours(23, 59, 0, 0); // Đưa về cuối ngày cho đẹp
     return date;
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const [dateMode, setDateMode] = useState<'date' | 'time'>('date');
+  const [dateMode, setDateMode] = useState<"date" | "time">("date");
 
   const isDark = colorScheme === "dark";
   const cardBg = isDark ? "#1C1C1E" : "#FFFFFF";
@@ -103,11 +105,14 @@ const CreateJobPost = () => {
           .single();
 
         if (profile?.role !== "employer") {
-          Alert.alert(
-            "Quyền truy cập bị hạn chế",
-            "Chỉ Nhà tuyển dụng mới có thể sử dụng tính năng này.",
-            [{ text: "Đã hiểu", onPress: () => router.back() }],
-          );
+          setPermissionDenied(true);
+          setDeniedReason("role");
+          // Alert.alert(
+          //   "Quyền truy cập bị hạn chế",
+          //   "Chỉ Nhà tuyển dụng mới có thể sử dụng tính năng này.",
+          //   [{ text: "Đã hiểu", onPress: () => router.back() }],
+          //   { cancelable: false },
+          // );
           return;
         }
 
@@ -118,19 +123,21 @@ const CreateJobPost = () => {
           .single();
 
         if (empError || !employerData?.company_name) {
+          setPermissionDenied(true);
+          setDeniedReason("profile");
           Alert.alert(
             "Thông tin thiếu",
             "Vui lòng cập nhật hồ sơ công ty trước.",
             [
               {
                 text: "Cập nhật",
-
                 onPress: () => {
                   router.back();
                   router.push("/settings/company/edit");
-                }
+                },
               },
             ],
+            { cancelable: false },
           );
           return;
         }
@@ -197,32 +204,40 @@ const CreateJobPost = () => {
       };
 
       console.log("Sending Payload:", payload);
-      
+
       // Emit event báo hiệu quá trình bắt đầu tải lên và đóng modal
-      DeviceEventEmitter.emit('create_post_start');
+      DeviceEventEmitter.emit("create_post_start");
       router.back();
 
       // Gọi API ở background (không await để chặn modal)
-      axios.post(`${ENV.API_URL}/jobs/create`, payload).then((response) => {
-        if (response.data.success) {
-          Toast.show({
-            type: 'success',
-            text1: 'Thành công',
-            text2: 'Tin tuyển dụng đã được AI xử lý và đăng tải.',
-            visibilityTime: 2500,
-            autoHide: true,
-          });
-          // Emit event báo hiệu tải lên thành công để trang chủ tự load lại
-          DeviceEventEmitter.emit('create_post_success');
-        }
-      }).catch((error) => {
-        if (error.response?.status === 422) {
-          DeviceEventEmitter.emit('create_post_error', "Dữ liệu gửi lên không đúng định dạng AI yêu cầu.");
-        } else {
-          DeviceEventEmitter.emit('create_post_error', "Không thể kết nối tới máy chủ AI.");
-        }
-      });
-
+      axios
+        .post(`${ENV.API_URL}/jobs/create`, payload)
+        .then((response) => {
+          if (response.data.success) {
+            Toast.show({
+              type: "success",
+              text1: "Thành công",
+              text2: "Tin tuyển dụng đã được AI xử lý và đăng tải.",
+              visibilityTime: 2500,
+              autoHide: true,
+            });
+            // Emit event báo hiệu tải lên thành công để trang chủ tự load lại
+            DeviceEventEmitter.emit("create_post_success");
+          }
+        })
+        .catch((error) => {
+          if (error.response?.status === 422) {
+            DeviceEventEmitter.emit(
+              "create_post_error",
+              "Dữ liệu gửi lên không đúng định dạng AI yêu cầu.",
+            );
+          } else {
+            DeviceEventEmitter.emit(
+              "create_post_error",
+              "Không thể kết nối tới máy chủ AI.",
+            );
+          }
+        });
     } catch (e) {
       console.error(e);
       setLoading(false);
@@ -241,7 +256,6 @@ const CreateJobPost = () => {
       if (selectedDate) setExpiredAt(selectedDate);
     }
   };
-
   if (fetchingEmployer) {
     return (
       <View
@@ -251,6 +265,50 @@ const CreateJobPost = () => {
         ]}
       >
         <ActivityIndicator size="large" color={accentColor} />
+      </View>
+    );
+  }
+
+  if (permissionDenied) {
+    return (
+      <View style={[styles.deniedOverlay, { backgroundColor: isDark ? "#000" : "#F2F2F7" }]}>
+        <StatusBar style={isDark ? "light" : "dark"} />
+        <SafeAreaView style={styles.deniedContent}>
+          <View style={[styles.lockIconContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(142,68,173,0.1)" }]}>
+            <Ionicons name="lock-closed" size={60} color={accentColor} />
+          </View>
+          <Text style={[styles.deniedTitle, { color: theme.text }]}>
+            {deniedReason === "role"
+              ? "Hạn chế quyền truy cập"
+              : "Hồ sơ chưa hoàn thiện"}
+          </Text>
+          <Text style={styles.deniedSubText}>
+            {deniedReason === "role"
+              ? "Chỉ có tài khoản Nhà tuyển dụng mới có thể đăng tin. Vui lòng liên hệ hỗ trợ để nâng cấp."
+              : "Bạn cần cập nhật thông tin công ty trước khi bắt đầu đăng tin tuyển dụng."}
+          </Text>
+
+          <TouchableOpacity
+            style={[styles.deniedBackBtn, { backgroundColor: accentColor }]}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.deniedBackBtnText}>Quay lại</Text>
+          </TouchableOpacity>
+
+          {deniedReason === "profile" && (
+            <TouchableOpacity
+              style={styles.updateProfileLink}
+              onPress={() => {
+                router.back();
+                router.push("/settings/company/edit");
+              }}
+            >
+              <Text style={{ color: "#8E8E93", fontSize: 14 }}>
+                Cập nhật ngay bây giờ
+              </Text>
+            </TouchableOpacity>
+          )}
+        </SafeAreaView>
       </View>
     );
   }
@@ -355,7 +413,9 @@ const CreateJobPost = () => {
           </View>
 
           {/* JOB TYPE SECTION */}
-          <View style={[styles.card, { backgroundColor: cardBg, marginTop: 20 }]}>
+          <View
+            style={[styles.card, { backgroundColor: cardBg, marginTop: 20 }]}
+          >
             <Text style={styles.label}>LOẠI HÌNH CÔNG VIỆC</Text>
             <View style={styles.chipContainer}>
               {JOB_TYPES.map((type) => (
@@ -364,10 +424,30 @@ const CreateJobPost = () => {
                   onPress={() => setSelectedJobType(type.value)}
                   style={[
                     styles.chip,
-                    { backgroundColor: selectedJobType === type.value ? accentColor : (isDark ? "#2C2C2E" : "#F2F2F7"), borderColor: borderColor }
+                    {
+                      backgroundColor:
+                        selectedJobType === type.value
+                          ? accentColor
+                          : isDark
+                            ? "#2C2C2E"
+                            : "#F2F2F7",
+                      borderColor: borderColor,
+                    },
                   ]}
                 >
-                  <Text style={[styles.chipText, { color: selectedJobType === type.value ? "#FFF" : (isDark ? "#EBEBF5" : "#3A3A3C") }]}>
+                  <Text
+                    style={[
+                      styles.chipText,
+                      {
+                        color:
+                          selectedJobType === type.value
+                            ? "#FFF"
+                            : isDark
+                              ? "#EBEBF5"
+                              : "#3A3A3C",
+                      },
+                    ]}
+                  >
                     {type.label}
                   </Text>
                 </TouchableOpacity>
@@ -409,31 +489,52 @@ const CreateJobPost = () => {
                   precision={currency === "USD" ? 1 : 0}
                 />
                 {/* Nút chuyển đổi tiền tệ */}
-                <TouchableOpacity 
-                  onPress={() => setCurrency(prev => prev === "VND" ? "USD" : "VND")}
-                  style={[styles.currencyPicker, { backgroundColor: isDark ? "#333" : "#eee" }]}
+                <TouchableOpacity
+                  onPress={() =>
+                    setCurrency((prev) => (prev === "VND" ? "USD" : "VND"))
+                  }
+                  style={[
+                    styles.currencyPicker,
+                    { backgroundColor: isDark ? "#333" : "#eee" },
+                  ]}
                 >
-                  <Text style={[styles.currencyText, { color: accentColor }]}>{currency}</Text>
+                  <Text style={[styles.currencyText, { color: accentColor }]}>
+                    {currency}
+                  </Text>
                   <Ionicons name="chevron-down" size={12} color={accentColor} />
                 </TouchableOpacity>
               </View>
             </View>
 
             {/* UNIT SELECTION CHIPS */}
-            <View style={[styles.chipContainer, { marginTop: 12, paddingLeft: 32 }]}>
+            <View
+              style={[styles.chipContainer, { marginTop: 12, paddingLeft: 32 }]}
+            >
               {SALARY_UNITS.map((unit) => (
                 <TouchableOpacity
                   key={unit.value}
                   onPress={() => setSalaryUnit(unit.value)}
                   style={[
                     styles.unitChip,
-                    { 
-                        backgroundColor: salaryUnit === unit.value ? `${accentColor}20` : "transparent",
-                        borderColor: salaryUnit === unit.value ? accentColor : borderColor 
-                    }
+                    {
+                      backgroundColor:
+                        salaryUnit === unit.value
+                          ? `${accentColor}20`
+                          : "transparent",
+                      borderColor:
+                        salaryUnit === unit.value ? accentColor : borderColor,
+                    },
                   ]}
                 >
-                  <Text style={[styles.unitChipText, { color: salaryUnit === unit.value ? accentColor : "#8E8E93" }]}>
+                  <Text
+                    style={[
+                      styles.unitChipText,
+                      {
+                        color:
+                          salaryUnit === unit.value ? accentColor : "#8E8E93",
+                      },
+                    ]}
+                  >
                     / {unit.label}
                   </Text>
                 </TouchableOpacity>
@@ -451,12 +552,12 @@ const CreateJobPost = () => {
                 onChangeText={setLocation}
               />
             </View>
-
-            
           </View>
 
           {/* EXPIRED DATE PICKER */}
-          <View style={[styles.card, { backgroundColor: cardBg, marginTop: 20 }]}>
+          <View
+            style={[styles.card, { backgroundColor: cardBg, marginTop: 20 }]}
+          >
             <View style={styles.rowItem}>
               <Ionicons name="calendar-outline" size={20} color={accentColor} />
               <View style={{ marginLeft: 12, flex: 1 }}>
@@ -467,30 +568,39 @@ const CreateJobPost = () => {
                   style={{ fontSize: 16, color: theme.text, fontWeight: "500" }}
                 >
                   {expiredAt.toLocaleString("vi-VN", {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
                   })}
                 </Text>
               </View>
               <TouchableOpacity
                 onPress={() => {
-                  setDateMode('date');
+                  setDateMode("date");
                   setShowDatePicker(true);
                 }}
-                style={{marginRight: 5, padding: 8, backgroundColor: isDark ? '#333' : '#eee', borderRadius: 8 }}
+                style={{
+                  marginRight: 5,
+                  padding: 8,
+                  backgroundColor: isDark ? "#333" : "#eee",
+                  borderRadius: 8,
+                }}
               >
                 <CalendarRange size={16} color={accentColor} />
               </TouchableOpacity>
               {/* Thêm một nút nhỏ để chuyển sang chọn GIỜ nhanh */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => {
-                    setDateMode('time');
-                    setShowDatePicker(true);
+                  setDateMode("time");
+                  setShowDatePicker(true);
                 }}
-                style={{ padding: 4.5, backgroundColor: isDark ? '#333' : '#eee', borderRadius: 8 }}
+                style={{
+                  padding: 4.5,
+                  backgroundColor: isDark ? "#333" : "#eee",
+                  borderRadius: 8,
+                }}
               >
                 <Ionicons name="time-outline" size={23} color={accentColor} />
               </TouchableOpacity>
@@ -499,7 +609,7 @@ const CreateJobPost = () => {
             {showDatePicker && (
               <View style={{ marginTop: 10 }}>
                 <DateTimePicker
-                  style={{marginLeft: 20}}
+                  style={{ marginLeft: 20 }}
                   value={expiredAt}
                   mode={dateMode}
                   minimumDate={new Date()}
@@ -608,13 +718,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   chipText: { fontSize: 13, fontWeight: "600" },
-  unitChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+  unitChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
   unitChipText: { fontSize: 12, fontWeight: "700" },
   doneBtn: { alignSelf: "center", marginTop: 5, padding: 10 },
   doneBtnText: { color: "#8e44ad", fontWeight: "bold", fontSize: 16 },
   currencyPicker: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -631,6 +746,55 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 20,
     paddingHorizontal: 20,
+  },
+  // Style cho Overlay chặn quyền
+  deniedOverlay: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  deniedContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  lockIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 30,
+  },
+  deniedTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  deniedSubText: {
+    fontSize: 15,
+    color: "#8E8E93",
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: 40,
+  },
+  deniedBackBtn: {
+    width: "100%",
+    height: 54,
+    borderRadius: 27,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deniedBackBtnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  updateProfileLink: {
+    marginTop: 20,
+    padding: 10,
   },
 });
 

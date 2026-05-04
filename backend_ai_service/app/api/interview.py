@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
 from pydantic import BaseModel
+from websockets import asyncio
+
 from app.core.supabase import supabase
 from app.services.interview_ai import interview_ai
 import json
@@ -111,20 +113,26 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
 
                     # Duyệt qua từng mảnh text trả về từ Gemini
                     async for chunk in stream_gen:
+                        # Xử lý [SYSTEM_END] — hard rule ngắt từ hệ thống (không phải AI)
+                        if "[SYSTEM_END]" in chunk:
+                            is_summary = True
+                            full_text = "Buổi phỏng vấn đã đạt giới hạn câu hỏi. Cảm ơn bạn đã tham gia!"
+                            break
+
                         if not full_text and "[SUMMARY]" in chunk:
                             is_summary = True
                             chunk = chunk.replace("[SUMMARY]", "").lstrip()
-                        
+
                         if chunk:
                             full_text += chunk
                             await websocket.send_json({
-                                "type": "stream_chunk", 
-                                "id": msg_id, 
+                                "type": "stream_chunk",
+                                "id": msg_id,
                                 "content": chunk
                             })
-                    
+
                     # Nếu chạy đến đây không lỗi thì thoát vòng lặp retry
-                    break 
+                    break
 
                 except Exception as e:
                     # Nếu gặp lỗi 503 (quá tải), đợi vài giây rồi thử lại
@@ -139,17 +147,17 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                     })
                     raise e
 
-                    # Kiểm tra lại một lần nữa ký hiệu kết thúc buổi phỏng vấn
-                    if "[SUMMARY]" in full_text:
-                        is_summary = True
-                        full_text = full_text.replace("[SUMMARY]", "").lstrip()
+            # Kiểm tra lại một lần nữa ký hiệu kết thúc buổi phỏng vấn
+            if "[SUMMARY]" in full_text:
+                is_summary = True
+                full_text = full_text.replace("[SUMMARY]", "").lstrip()
 
-                    await websocket.send_json({"type": "stream_end", "id": msg_id, "content": full_text})
-                    
-                    return {
-                        "type": "summary" if is_summary else "question",
-                        "content": full_text
-                    }
+            await websocket.send_json({"type": "stream_end", "id": msg_id, "content": full_text})
+            
+            return {
+                "type": "summary" if is_summary else "question",
+                "content": full_text
+            }
         # Gửi tin nhắn chào mừng
         await websocket.send_json({
             "type": "system",
@@ -225,7 +233,8 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                     eval_result = await interview_ai.evaluate_interview(
                         job_title=final_job_title,
                         language=session_language,
-                        messages=history
+                        messages=history,
+                        session_id=session_id  # Truyền session_id để audit log
                     )
                     eval_data = {
                         "overall_score": int(float(eval_result.get('overall_score', 0))),
@@ -243,13 +252,12 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                         "evaluation": eval_data
                     })
                     
-                    eval_json_str = json.dumps(eval_data, ensure_ascii=False)
-                    # Cập nhật session
+                    # Cập nhật session (Truyền trực tiếp dict thay vì json.dumps để Supabase tự parse thành jsonb)
                     supabase_client.table('interview_sessions') \
                         .update({
                         "status": "completed",
                         "overall_score": eval_data["overall_score"],
-                        "overall_feedback": eval_json_str
+                        "overall_feedback": eval_data
                     }) \
                         .eq('id', session_id) \
                         .execute()

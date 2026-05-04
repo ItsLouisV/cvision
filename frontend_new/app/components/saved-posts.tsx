@@ -8,8 +8,9 @@ import {
   Text,
   TouchableOpacity,
   View,
+  StatusBar,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import PostCard from "@/components/ui/PostCard";
 import { Colors } from "@/constants/themes";
@@ -23,6 +24,7 @@ const SavedPostsScreen = () => {
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
   const { user } = useCurrentUser();
+  const insets = useSafeAreaInsets();
 
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,19 +95,17 @@ const SavedPostsScreen = () => {
         style={[
           styles.emptyIconCircle,
           {
-            backgroundColor: isDark
-              ? "rgba(255, 255, 255, 0.05)"
-              : "rgba(0,0,0,0.05)",
+            backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7",
           },
         ]}
       >
-        <BookmarkX size={48} color={isDark ? "#888" : "#AAA"} />
+        <BookmarkX size={48} color={isDark ? "#444" : "#AAA"} strokeWidth={1.5} />
       </View>
       <Text style={[styles.emptyTitle, { color: theme.text }]}>
-        Thư mục rỗng!
+        Thư mục trống
       </Text>
       <Text style={[styles.emptyText, { color: isDark ? "#888" : "#666" }]}>
-        Bạn hiện chưa lưu bài viết nào để xem lại sau.
+        Lưu lại những công việc thú vị để xem kỹ hơn khi bạn có thời gian nhé.
       </Text>
       <TouchableOpacity
         style={styles.exploreBtn}
@@ -118,22 +118,35 @@ const SavedPostsScreen = () => {
   );
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.background }]}
-      edges={["top"]}
-    >
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+
       {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ChevronLeft size={28} color={theme.text} />
+      <View
+        style={[
+          styles.header,
+          { 
+            paddingTop: insets.top,
+            backgroundColor: theme.background,
+            borderBottomColor: isDark ? "#1C1C1E" : "#F2F2F7" 
+          },
+        ]}
+      >
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={[styles.backBtn, { backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7" }]}
+        >
+          <ChevronLeft size={24} color={theme.text} />
         </TouchableOpacity>
 
         <Text style={[styles.headerTitle, { color: theme.text }]}>
-          Mục đã lưu
+          Đã lưu
         </Text>
 
-        <TouchableOpacity style={styles.folderBtn}>
-          <FolderOpen size={24} color={theme.text} />
+        <TouchableOpacity 
+          style={[styles.folderBtn, { backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7" }]}
+        >
+          <FolderOpen size={22} color={theme.text} />
         </TouchableOpacity>
       </View>
 
@@ -177,7 +190,7 @@ const SavedPostsScreen = () => {
           showsVerticalScrollIndicator={false}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -191,27 +204,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    height: 60,
-    marginBottom: 4,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
   },
-  headerTitle: { fontSize: 20, fontWeight: "800" },
+  headerTitle: { 
+    fontSize: 20, 
+    fontWeight: "800",
+    letterSpacing: -0.5,
+  },
   backBtn: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 22,
-    backgroundColor: "rgba(150,150,150,0.1)",
+    borderRadius: 20,
   },
   folderBtn: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 22,
-    backgroundColor: "rgba(150,150,150,0.1)",
+    borderRadius: 20,
   },
-  listPadding: { paddingBottom: 40, paddingTop: 16 },
+  listPadding: { 
+    paddingBottom: 40, 
+    paddingTop: 12,
+  },
 
   folderBadge: {
     alignSelf: "flex-start",
@@ -219,15 +237,15 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderTopRightRadius: 12,
     borderTopLeftRadius: 12,
-    marginLeft: 32,
-    marginBottom: -16,
+    marginLeft: 16,
+    marginBottom: -8,
     zIndex: 1,
     borderWidth: 1,
-    borderColor: "rgba(150,150,150,0.2)",
+    borderColor: "rgba(150,150,150,0.1)",
     borderBottomWidth: 0,
   },
   folderBadgeText: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#8e44ad",
     fontWeight: "800",
     textTransform: "uppercase",
@@ -238,34 +256,43 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 120,
     paddingHorizontal: 40,
+    paddingBottom: 100,
   },
   emptyIconCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 24,
   },
-  emptyTitle: { fontSize: 22, fontWeight: "800", marginBottom: 12 },
+  emptyTitle: { 
+    fontSize: 22, 
+    fontWeight: "800", 
+    marginBottom: 12,
+    textAlign: "center",
+  },
   emptyText: {
-    fontSize: 16,
+    fontSize: 15,
     textAlign: "center",
     marginBottom: 32,
-    lineHeight: 24,
+    lineHeight: 22,
   },
   exploreBtn: {
     backgroundColor: "#8e44ad",
     paddingHorizontal: 32,
     paddingVertical: 14,
-    borderRadius: 100,
+    borderRadius: 25,
     shadowColor: "#8e44ad",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
-  exploreBtnText: { color: "#FFF", fontWeight: "800", fontSize: 16 },
+  exploreBtnText: { 
+    color: "#FFF", 
+    fontWeight: "800", 
+    fontSize: 16 
+  },
 });

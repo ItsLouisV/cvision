@@ -4,8 +4,10 @@ from app.core.gemini import gemini
 from app.services.cv_parser import cv_parser
 from app.services.skill_extractor import skill_extractor
 from app.prompts.cv_analysis import CV_ANALYSIS_PROMPT
-from app.models.cv import CVAnalysisResponse  # Import model đã viết
-from app.utils.logger import log_info, log_error  # Sử dụng logger tập trung
+from app.models.cv import CVAnalysisResponse
+from app.rules.scoring_rules import CVAnalysisRules
+from app.utils.ai_audit import ai_audit
+from app.utils.logger import log_info, log_error
 import uuid
 import json
 import urllib.parse
@@ -49,9 +51,22 @@ async def upload_cv(
             .from_('cvs') \
             .get_public_url(file_path)
 
-        # 4. AI Analysis with Gemini (Sử dụng Prompt từ file prompts)
-        prompt = CV_ANALYSIS_PROMPT.format(cv_text=cv_text[:15000])  # Nới rộng context
-        analysis = await gemini.generate_json(prompt)
+        # 4. AI Analysis with Gemini
+        prompt = CV_ANALYSIS_PROMPT.format(cv_text=cv_text[:15000])
+        ai_raw = await gemini.generate_json(prompt)
+
+        # ── Áp dụng CV Analysis Rules — kiểm tra và làm sạch output AI ──
+        analysis = CVAnalysisRules.validate(ai_raw.copy())
+
+        # ── Ghi Audit Log ──
+        ai_audit.log(
+            action="cv_analysis",
+            entity_id=user_id,
+            ai_raw_output=ai_raw,
+            final_output=analysis,
+            was_adjusted=analysis.get("_rule_adjusted", False),
+            extra={"filename": safe_filename}
+        )
 
         # 5. Generate embedding vector cho CV (Dùng dữ liệu đã phân tích để tăng độ chính xác)
         core_skills = ", ".join(analysis.get('skills', {}).get('top_skills', []))

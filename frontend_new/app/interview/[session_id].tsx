@@ -59,7 +59,7 @@ const BouncingDots = ({ color }: { color: string }) => {
             duration: 400,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       );
     };
 
@@ -85,13 +85,91 @@ const BouncingDots = ({ color }: { color: string }) => {
   });
 
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 4, height: 16 }}>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 4,
+        height: 16,
+      }}
+    >
       <Animated.View style={dotStyle(animation1)} />
       <Animated.View style={dotStyle(animation2)} />
       <Animated.View style={dotStyle(animation3)} />
     </View>
   );
 };
+
+const MessageItem = React.memo(
+  ({ item, isDark, theme }: { item: Message; isDark: boolean; theme: any }) => {
+    const isUser = item.sender === "user";
+
+    const copyToClipboard = async () => {
+      await Clipboard.setStringAsync(item.content);
+      Toast.show({
+        type: "success",
+        text1: "Copied to clipboard!",
+        position: "top",
+        topOffset: 50,
+        visibilityTime: 1000,
+        autoHide: true,
+        onPress: () => Toast.hide(),
+      });
+    };
+
+    return (
+      <View
+        style={[
+          styles.msgWrapper,
+          isUser ? styles.userWrapper : styles.aiWrapper,
+        ]}
+      >
+        {!isUser && (
+          <View style={styles.aiAvatar}>
+            <Ionicons name="sparkles" size={12} color="#fff" />
+          </View>
+        )}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onLongPress={copyToClipboard}
+          style={[
+            styles.bubble,
+            isUser
+              ? styles.userBubble
+              : [
+                  styles.aiBubble,
+                  { backgroundColor: isDark ? "#2C2C2E" : "#F2F2F7" },
+                ],
+          ]}
+        >
+          <Text
+            style={[styles.msgText, { color: isUser ? "#fff" : theme.text }]}
+          >
+            {item.content}
+          </Text>
+          <Text
+            style={[
+              styles.timeText,
+              { color: isUser ? "rgba(255,255,255,0.7)" : "#8E8E93" },
+            ]}
+          >
+            {item.timestamp.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  },
+  (prevProps, nextProps) => {
+    // Chỉ re-render nếu nội dung text thay đổi (đang stream)
+    return (
+      prevProps.item.content === nextProps.item.content &&
+      prevProps.isDark === nextProps.isDark
+    );
+  },
+);
 
 const InterviewScreen = () => {
   const { session_id } = useLocalSearchParams();
@@ -126,6 +204,39 @@ const InterviewScreen = () => {
 
   const appState = useRef(AppState.currentState);
 
+  // --- THÔNG SỐ TỐI ƯU HIỆU NĂNG STREAMING ---
+  // Sử dụng useRef làm Buffer để tích trữ dữ liệu streaming mà không gây re-render
+  const streamBufferRef = useRef<{ [id: string]: string }>({});
+  const lastUpdateTimeRef = useRef<number>(0);
+  const streamUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  // Hàm Flush: Lấy toàn bộ text trong Buffer và đẩy vào React State (1 lần duy nhất)
+  const flushStreamBuffer = () => {
+    lastUpdateTimeRef.current = Date.now();
+    if (streamUpdateTimeoutRef.current) {
+      clearTimeout(streamUpdateTimeoutRef.current);
+      streamUpdateTimeoutRef.current = null;
+    }
+
+    setMessages((prev) => {
+      let hasChanges = false;
+      const next = prev.map((msg) => {
+        const buffered = streamBufferRef.current[msg.id];
+        if (buffered) {
+          hasChanges = true;
+          return { ...msg, content: msg.content + buffered };
+        }
+        return msg;
+      });
+
+      if (hasChanges) {
+        streamBufferRef.current = {}; // Xóa buffer sau khi đã apply
+      }
+      return hasChanges ? next : prev;
+    });
+  };
   const connectWebSocket = () => {
     if (
       ws.current &&
@@ -195,17 +306,30 @@ const InterviewScreen = () => {
         }
 
         if (data.type === "stream_chunk") {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === data.id
-                ? { ...msg, content: msg.content + data.content }
-                : msg
-            )
-          );
+          // 1. Lưu chunk mới vào buffer
+          if (!streamBufferRef.current[data.id]) {
+            streamBufferRef.current[data.id] = "";
+          }
+          streamBufferRef.current[data.id] += data.content;
+
+          // 2. Throttling: Gom các chunk lại và chỉ thực sự update state mỗi 80ms
+          const now = Date.now();
+          if (now - lastUpdateTimeRef.current > 80) {
+            flushStreamBuffer(); // Đã đủ thời gian, xả buffer vào state
+          } else {
+            // Chưa đủ thời gian, hẹn giờ xả buffer
+            if (!streamUpdateTimeoutRef.current) {
+              streamUpdateTimeoutRef.current = setTimeout(() => {
+                flushStreamBuffer();
+              }, 80);
+            }
+          }
           return;
         }
 
         if (data.type === "stream_end") {
+          // Khi stream kết thúc, bắt buộc xả nốt những text còn kẹt trong buffer
+          flushStreamBuffer();
           setIsTyping(false);
           setTypingMessage("AI đang suy nghĩ...");
           return;
@@ -269,8 +393,11 @@ const InterviewScreen = () => {
         sessionData.overall_feedback
       ) {
         try {
-          // Parse string JSON đã lưu trong backend
-          const parsedEval = JSON.parse(sessionData.overall_feedback);
+          // Parse data (có thể backend trả về object luôn hoặc chuỗi JSON)
+          let parsedEval = sessionData.overall_feedback;
+          if (typeof parsedEval === "string") {
+            parsedEval = JSON.parse(parsedEval);
+          }
           setEvaluation(parsedEval);
         } catch (e) {
           console.error("Lỗi parse evaluation từ lịch sử:", e);
@@ -379,7 +506,7 @@ const InterviewScreen = () => {
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
   async function startRecording() {
@@ -424,18 +551,31 @@ const InterviewScreen = () => {
       const formData = new FormData();
       // @ts-ignore
       formData.append("file", {
-        uri: Platform.OS === "ios" ? (!uri.startsWith("file://") ? `file://${uri}` : uri) : uri,
+        uri:
+          Platform.OS === "ios"
+            ? !uri.startsWith("file://")
+              ? `file://${uri}`
+              : uri
+            : uri,
         type: "audio/m4a",
         name: "speech.m4a",
       });
 
-      const res = await axios.post(`${ENV.API_URL}/interview/stt/convert`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const res = await axios.post(
+        `${ENV.API_URL}/interview/stt/convert`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
 
       // Tự động gửi tin nhắn qua WebSocket nếu nhận diện được text
       const transcribedText = res.data?.text?.trim();
-      if (transcribedText && ws.current?.readyState === WebSocket.OPEN && user?.id) {
+      if (
+        transcribedText &&
+        ws.current?.readyState === WebSocket.OPEN &&
+        user?.id
+      ) {
         // Hiển thị tin nhắn user ngay trên UI
         setMessages((prev) => [
           ...prev,
@@ -449,7 +589,11 @@ const InterviewScreen = () => {
 
         // Gửi qua WebSocket
         ws.current.send(
-          JSON.stringify({ type: "answer", content: transcribedText, user_id: user?.id })
+          JSON.stringify({
+            type: "answer",
+            content: transcribedText,
+            user_id: user?.id,
+          }),
         );
         setIsTyping(true);
       } else if (transcribedText) {
@@ -502,67 +646,12 @@ const InterviewScreen = () => {
     setIsTyping(true);
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
-    const isUser = item.sender === "user";
-
-    const copyToClipboard = async () => {
-      await Clipboard.setStringAsync(item.content);
-      Toast.show({
-        type: "success",
-        text1: "Copied to clipboard!",
-        position: "top",
-        topOffset: 50,
-        visibilityTime: 1000,
-        autoHide: true,
-        onPress: () => Toast.hide(),
-      });
-    };
-
-    return (
-      <View
-        style={[
-          styles.msgWrapper,
-          isUser ? styles.userWrapper : styles.aiWrapper,
-        ]}
-      >
-        {!isUser && (
-          <View style={styles.aiAvatar}>
-            <Ionicons name="sparkles" size={12} color="#fff" />
-          </View>
-        )}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onLongPress={copyToClipboard}
-          style={[
-            styles.bubble,
-            isUser
-              ? styles.userBubble
-              : [
-                  styles.aiBubble,
-                  { backgroundColor: isDark ? "#2C2C2E" : "#F2F2F7" },
-                ],
-          ]}
-        >
-          <Text
-            style={[styles.msgText, { color: isUser ? "#fff" : theme.text }]}
-          >
-            {item.content}
-          </Text>
-          <Text
-            style={[
-              styles.timeText,
-              { color: isUser ? "rgba(255,255,255,0.7)" : "#8E8E93" },
-            ]}
-          >
-            {item.timestamp.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
+  const renderMessage = React.useCallback(
+    ({ item }: { item: Message }) => {
+      return <MessageItem item={item} isDark={isDark} theme={theme} />;
+    },
+    [isDark, theme],
+  );
 
   const renderEvaluation = () => {
     if (!evaluation) return null;
@@ -685,14 +774,19 @@ const InterviewScreen = () => {
         renderItem={renderMessage}
         contentContainerStyle={styles.listContent}
         ListFooterComponent={renderEvaluation}
-        onContentSizeChange={() =>
-          flatListRef.current?.scrollToEnd({ animated: true })
-        }
+        onContentSizeChange={() => {
+          // Khi đang stream, nếu bật animated=true sẽ gây xung đột animation và làm đơ UI (bị giật, freeze)
+          // Nên ta chỉ bật animation khi stream đã kết thúc
+          flatListRef.current?.scrollToEnd({ animated: !isTyping });
+        }}
+        onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
       />
 
       {(isTyping || isProcessingVoice) && (
         <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
-          <View style={[styles.msgWrapper, styles.aiWrapper, { marginBottom: 0 }]}>
+          <View
+            style={[styles.msgWrapper, styles.aiWrapper, { marginBottom: 0 }]}
+          >
             <View style={styles.aiAvatar}>
               <Ionicons name="sparkles" size={12} color="#fff" />
             </View>
@@ -709,7 +803,12 @@ const InterviewScreen = () => {
               ]}
             >
               <BouncingDots color={"#8E8E93"} />
-              <Text style={[styles.typingText, { marginLeft: 8, color: "#8E8E93", fontSize: 12 }]}>
+              <Text
+                style={[
+                  styles.typingText,
+                  { marginLeft: 8, color: "#8E8E93", fontSize: 12 },
+                ]}
+              >
                 {isProcessingVoice ? "Đang xử lý giọng nói..." : typingMessage}
               </Text>
             </View>
@@ -779,42 +878,53 @@ const InterviewScreen = () => {
               },
             ]}
           >
-            <TouchableOpacity onPress={() => setIsVoiceMode(false)} style={styles.keyboardBtn}>
+            <TouchableOpacity
+              onPress={() => setIsVoiceMode(false)}
+              style={styles.keyboardBtn}
+            >
               <Ionicons name="keypad-outline" size={24} color={accentColor} />
             </TouchableOpacity>
-            
+
             <View style={styles.voiceRecordArea}>
               <View style={styles.rippleContainer}>
                 {/* Ripple rings */}
-                {recording && [ripple1, ripple2, ripple3].map((anim, i) => (
-                  <Animated.View
-                    key={i}
-                    style={[
-                      styles.rippleRing,
-                      {
-                        opacity: anim.interpolate({
-                          inputRange: [0, 0.3, 1],
-                          outputRange: [0.6, 0.3, 0],
-                        }),
-                        transform: [
-                          {
-                            scale: anim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [1, 2.8],
-                            }),
-                          },
-                        ],
-                      },
-                    ]}
-                  />
-                ))}
+                {recording &&
+                  [ripple1, ripple2, ripple3].map((anim, i) => (
+                    <Animated.View
+                      key={i}
+                      style={[
+                        styles.rippleRing,
+                        {
+                          opacity: anim.interpolate({
+                            inputRange: [0, 0.3, 1],
+                            outputRange: [0.6, 0.3, 0],
+                          }),
+                          transform: [
+                            {
+                              scale: anim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [1, 2.8],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                    />
+                  ))}
 
                 {/* Mic button */}
-                <Animated.View style={recording ? { transform: [{ scale: micGlow }] } : undefined}>
+                <Animated.View
+                  style={
+                    recording ? { transform: [{ scale: micGlow }] } : undefined
+                  }
+                >
                   <TouchableOpacity
                     onPress={recording ? stopRecording : startRecording}
                     activeOpacity={0.8}
-                    style={[styles.bigMicBtn, recording && styles.bigMicBtnActive]}
+                    style={[
+                      styles.bigMicBtn,
+                      recording && styles.bigMicBtnActive,
+                    ]}
                   >
                     <Ionicons
                       name={recording ? "stop" : "mic"}
@@ -831,11 +941,18 @@ const InterviewScreen = () => {
                     <View style={styles.liveDot} />
                     <Text style={styles.liveText}>REC</Text>
                   </View>
-                  <Text style={styles.timerText}>{formatDuration(recordingDuration)}</Text>
+                  <Text style={styles.timerText}>
+                    {formatDuration(recordingDuration)}
+                  </Text>
                 </View>
               )}
 
-              <Text style={[styles.voiceInstructionText, { color: recording ? '#FF3B30' : theme.text }]}>
+              <Text
+                style={[
+                  styles.voiceInstructionText,
+                  { color: recording ? "#FF3B30" : theme.text },
+                ]}
+              >
                 {recording ? "Bấm để dừng ghi âm" : "Bấm vào mic để ghi âm"}
               </Text>
             </View>
@@ -999,7 +1116,7 @@ const styles = StyleSheet.create({
     height: 280,
   },
   keyboardBtn: {
-    position: 'absolute',
+    position: "absolute",
     top: 16,
     left: 16,
     width: 44,
