@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Cập nhật UI ngay với dữ liệu từ local storage
         setSession(localSession);
         setUser(localSession?.user ?? null);
-        if (session?.user) await refreshProfile(session.user.id);  // Lấy Profile ngay.
+        if (localSession?.user) await refreshProfile(localSession.user.id);  // Lấy Profile ngay.
         setLoading(false);
       }
 

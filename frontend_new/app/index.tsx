@@ -17,6 +17,12 @@ export default function Index() {
 
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const loadingRef = useRef(true);
+
+  const setAppLoading = (val: boolean) => {
+    setLoading(val);
+    loadingRef.current = val;
+  };
   // Trạng thái biometric gate
   const [biometricPending, setBiometricPending] = useState(false);
   const [biometricFailed, setBiometricFailed] = useState(false);
@@ -108,16 +114,45 @@ export default function Index() {
         }
       }
 
-      setLoading(false);
+      setAppLoading(false);
     };
 
     checkSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, newSession) => {
         console.log("🔔 Trạng thái Auth thay đổi:", _event);
-        setSession(session);
-      },
+        setSession(newSession);
+
+        // Xử lý đặc biệt cho trường hợp Token được làm mới sau một thời gian dài
+        if ((_event === "TOKEN_REFRESHED" || _event === "SIGNED_IN") && newSession) {
+          if (loadingRef.current) {
+            // Nếu vẫn đang loading, có nghĩa là getSession() có thể đã bị chậm hoặc treo
+            // Chúng ta chủ động chạy kiểm tra biometric và vào app
+            setBiometricPending(true);
+            const biometricOk = await checkAndAuthenticate();
+            setBiometricPending(false);
+            
+            if (biometricOk) {
+              setAppLoading(false);
+            } else {
+              setBiometricFailed(true);
+              setAppLoading(false);
+              // Kích hoạt animation hiện UI thử lại
+              Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 300,
+                useNativeDriver: true,
+              }).start();
+            }
+          }
+        }
+
+        if (_event === "SIGNED_OUT") {
+          setAppLoading(false);
+          setBiometricPending(false);
+        }
+      }
     );
 
     return () => {

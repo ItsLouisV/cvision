@@ -1,17 +1,11 @@
 import React, { useEffect, useState } from "react";
 import {
-  Modal,
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  TextInput,
-  KeyboardAvoidingView,
   Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
-  ScrollView,
 } from "react-native";
 import { FileText, X, CheckCircle2 } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
@@ -20,6 +14,13 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import { ENV } from "@/config";
+
+import BottomSheet, { 
+  BottomSheetScrollView,
+  BottomSheetBackdrop,
+  BottomSheetTextInput
+} from '@gorhom/bottom-sheet';
+import { useRef, useMemo, useCallback } from 'react';
 
 interface CVData {
   id: string;
@@ -63,6 +64,18 @@ export const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
   const secondaryBg = isDark ? "#2C2C2E" : "#F2F2F7";
   const separator = isDark ? "#38383A" : "#E5E5EA";
   const secondaryText = isDark ? "#8E8E93" : "#8E8E93";
+
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  const snapPoints = useMemo(() => ['55%', '88%'], []);
+
+  // Mở/đóng theo prop visible
+  useEffect(() => {
+    if (visible) {
+      bottomSheetRef.current?.snapToIndex(0); // mở ở 55%
+    } else {
+      bottomSheetRef.current?.close();
+    }
+  }, [visible]);
 
   useEffect(() => {
     if (visible) {
@@ -255,194 +268,219 @@ export const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
     }
   };
 
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+        onPress={onClose}
+      />
+    ),
+    [onClose]
+  );
+
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
+    <BottomSheet
+      ref={bottomSheetRef}
+      index={-1}
+      snapPoints={snapPoints}
+      enablePanDownToClose={true}
+      onClose={onClose}
+      backdropComponent={renderBackdrop}
+      backgroundStyle={{ backgroundColor: surfaceBg }}
+      handleIndicatorStyle={{ backgroundColor: isDark ? "#555" : "#ccc" }}
+      keyboardBehavior="extend"
+      keyboardBlurBehavior="restore"
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.modalContainer}
+      {/* Header (Fixed) */}
+      <View style={[styles.header, { borderBottomColor: separator }]}>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>
+          Ứng tuyển công việc
+        </Text>
+        <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+          <X size={24} color={theme.text} />
+        </TouchableOpacity>
+      </View>
+
+      <BottomSheetScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 20 }}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={onClose}>
-              <View style={{ flex: 1 }} />
-            </TouchableWithoutFeedback>
+        {/* CV List */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Chọn CV của bạn
+          </Text>
 
-            <View style={[styles.modalContent, { backgroundColor: surfaceBg }]}>
-              {/* Header */}
-              <View style={[styles.header, { borderBottomColor: separator }]}>
-                <Text style={[styles.headerTitle, { color: theme.text }]}>
-                  Ứng tuyển công việc
-                </Text>
-                <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                  <X size={24} color={theme.text} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                style={{ maxHeight: Platform.OS === "ios" ? 400 : 350 }}
-                showsVerticalScrollIndicator={false}
+          {loading ? (
+            <ActivityIndicator style={{ padding: 20 }} color="#8e44ad" />
+          ) : cvs.length === 0 ? (
+            <View style={styles.emptyState}>
+              <FileText size={40} color={secondaryText} />
+              <Text style={[styles.emptyText, { color: secondaryText }]}>
+                Chưa có CV nào trong hệ thống
+              </Text>
+              <TouchableOpacity
+                style={styles.uploadBtn}
+                onPress={() => {
+                  onClose();
+                  router.push("/(drawer)/(tabs)/profile");
+                }}
               >
-                {/* CV List */}
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                    Chọn CV của bạn
-                  </Text>
-
-                  {loading ? (
-                    <ActivityIndicator style={{ padding: 20 }} color="#007AFF" />
-                  ) : cvs.length === 0 ? (
-                    <View style={styles.emptyState}>
-                      <FileText size={40} color={secondaryText} />
-                      <Text style={[styles.emptyText, { color: secondaryText }]}>
-                        Chưa có CV nào trong hệ thống
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.uploadBtn}
-                        onPress={() => {
-                          onClose();
-                          // Try to navigate to a screen to upload CV
-                          // You can adjust the route as per your structure
-                          router.push("/(drawer)/(tabs)/profile");
-                        }}
-                      >
-                        <Text style={styles.uploadBtnText}>Thêm hồ sơ CV</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    cvs.map((cv) => (
-                      <TouchableOpacity
-                        key={cv.id}
-                        style={[
-                          styles.cvItem,
-                          {
-                            backgroundColor: secondaryBg,
-                            borderColor:
-                              selectedCvId === cv.id ? "#8e44ad" : "transparent",
-                          },
-                        ]}
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          setSelectedCvId(cv.id);
-                        }}
-                      >
-                        <FileText size={24} color={selectedCvId === cv.id ? "#8e44ad" : theme.text} />
-                        <View style={styles.cvInfo}>
-                          <Text style={[styles.cvName, { color: theme.text }]} numberOfLines={1}>
-                            {cv.file_name}
-                          </Text>
-                          {cv.is_default && (
-                            <Text style={styles.cvDefaultText}>Mặc định</Text>
-                          )}
-                        </View>
-                        {selectedCvId === cv.id ? (
-                          <CheckCircle2 size={24} color="#8e44ad" />
-                        ) : (
-                          <View style={[styles.radioPlaceholder, { borderColor: separator }]} />
-                        )}
-                      </TouchableOpacity>
-                    ))
-                  )}
-
-                  <TouchableOpacity
-                    style={[styles.uploadNewBtn, { borderColor: separator }]}
-                    onPress={handleUploadNewCV}
-                    disabled={isUploading}
-                  >
-                    {isUploading ? (
-                      <ActivityIndicator size="small" color="#8e44ad" />
-                    ) : (
-                      <>
-                        <FileText size={20} color="#8e44ad" />
-                        <Text style={[styles.uploadNewBtnText, { color: theme.text }]}>
-                          Tải lên CV khác (PDF)
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-
-                {/* Thông tin liên hệ */}
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                    Thông tin liên hệ
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.contactInput,
-                      { backgroundColor: secondaryBg, color: theme.text, borderColor: separator },
-                    ]}
-                    placeholder="Họ Tên"
-                    placeholderTextColor={secondaryText}
-                    value={fullName}
-                    onChangeText={setFullName}
-                  />
-                  <TextInput
-                    style={[
-                      styles.contactInput,
-                      { backgroundColor: secondaryBg, color: theme.text, borderColor: separator, marginTop: 10 },
-                    ]}
-                    placeholder="Email"
-                    keyboardType="email-address"
-                    placeholderTextColor={secondaryText}
-                    value={email}
-                    onChangeText={setEmail}
-                  />
-                  <TextInput
-                    style={[
-                      styles.contactInput,
-                      { backgroundColor: secondaryBg, color: theme.text, borderColor: separator, marginTop: 10 },
-                    ]}
-                    placeholder="Số điện thoại"
-                    keyboardType="phone-pad"
-                    placeholderTextColor={secondaryText}
-                    value={phone}
-                    onChangeText={setPhone}
-                  />
-                </View>
-
-                {/* Cover Letter */}
-                {cvs.length > 0 && (
-                  <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                      Thư xin việc (Tuỳ chọn)
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.coverInput,
-                        {
-                          backgroundColor: secondaryBg,
-                          color: theme.text,
-                          borderColor: separator,
-                        },
-                      ]}
-                      placeholder="Viết một đoạn ngắn giới thiệu bản thân..."
-                      placeholderTextColor={secondaryText}
-                      multiline
-                      value={coverLetter}
-                      onChangeText={setCoverLetter}
-                      textAlignVertical="top"
-                    />
-                  </View>
-                )}
-              </ScrollView>
+                <Text style={styles.uploadBtnText}>Thêm hồ sơ CV</Text>
+              </TouchableOpacity>
             </View>
+          ) : (
+            cvs.map((cv) => (
+              <TouchableOpacity
+                key={cv.id}
+                style={[
+                  styles.cvItem,
+                  {
+                    backgroundColor: secondaryBg,
+                    borderColor:
+                      selectedCvId === cv.id ? "#8e44ad" : "transparent",
+                  },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedCvId(cv.id);
+                }}
+              >
+                <FileText
+                  size={24}
+                  color={selectedCvId === cv.id ? "#8e44ad" : theme.text}
+                />
+                <View style={styles.cvInfo}>
+                  <Text
+                    style={[styles.cvName, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {cv.file_name}
+                  </Text>
+                  {cv.is_default && (
+                    <Text style={styles.cvDefaultText}>Mặc định</Text>
+                  )}
+                </View>
+                {selectedCvId === cv.id ? (
+                  <CheckCircle2 size={24} color="#8e44ad" />
+                ) : (
+                  <View
+                    style={[styles.radioPlaceholder, { borderColor: separator }]}
+                  />
+                )}
+              </TouchableOpacity>
+            ))
+          )}
+
+          <TouchableOpacity
+            style={[styles.uploadNewBtn, { borderColor: separator }]}
+            onPress={handleUploadNewCV}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <ActivityIndicator size="small" color="#8e44ad" />
+            ) : (
+              <>
+                <FileText size={20} color="#8e44ad" />
+                <Text style={[styles.uploadNewBtnText, { color: theme.text }]}>
+                  Tải lên CV khác (PDF)
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Thông tin liên hệ */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Thông tin liên hệ
+          </Text>
+          <BottomSheetTextInput
+            style={[
+              styles.contactInput,
+              {
+                backgroundColor: secondaryBg,
+                color: theme.text,
+                borderColor: separator,
+              },
+            ]}
+            placeholder="Họ Tên"
+            placeholderTextColor={secondaryText}
+            value={fullName}
+            onChangeText={setFullName}
+          />
+          <BottomSheetTextInput
+            style={[
+              styles.contactInput,
+              {
+                backgroundColor: secondaryBg,
+                color: theme.text,
+                borderColor: separator,
+                marginTop: 10,
+              },
+            ]}
+            placeholder="Email"
+            keyboardType="email-address"
+            placeholderTextColor={secondaryText}
+            value={email}
+            onChangeText={setEmail}
+          />
+          <BottomSheetTextInput
+            style={[
+              styles.contactInput,
+              {
+                backgroundColor: secondaryBg,
+                color: theme.text,
+                borderColor: separator,
+                marginTop: 10,
+              },
+            ]}
+            placeholder="Số điện thoại"
+            keyboardType="phone-pad"
+            placeholderTextColor={secondaryText}
+            value={phone}
+            onChangeText={setPhone}
+          />
+        </View>
+
+        {/* Cover Letter */}
+        {cvs.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              Thư xin việc (Tuỳ chọn)
+            </Text>
+            <BottomSheetTextInput
+              style={[
+                styles.coverInput,
+                {
+                  backgroundColor: secondaryBg,
+                  color: theme.text,
+                  borderColor: separator,
+                },
+              ]}
+              placeholder="Viết một đoạn ngắn giới thiệu bản thân..."
+              placeholderTextColor={secondaryText}
+              multiline
+              value={coverLetter}
+              onChangeText={setCoverLetter}
+              textAlignVertical="top"
+            />
           </View>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
+        )}
+      </BottomSheetScrollView>
 
       {/* Submit Button */}
       {cvs.length > 0 && (
-        <View style={[styles.footer, { borderTopColor: separator, backgroundColor: theme.background }]}>
+        <View
+          style={[
+            styles.footer,
+            { borderTopColor: separator, backgroundColor: surfaceBg },
+          ]}
+        >
           <TouchableOpacity
-            style={[
-              styles.submitBtn,
-              submitting && { opacity: 0.7 },
-            ]}
+            style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
             onPress={handleApply}
             disabled={submitting}
           >
@@ -454,25 +492,11 @@ export const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
           </TouchableOpacity>
         </View>
       )}
-    </Modal>
+    </BottomSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 8,
-    minHeight: 400,
-  },
   header: {
     flexDirection: "row",
     alignItems: "center",

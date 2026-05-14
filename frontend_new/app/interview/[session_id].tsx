@@ -1005,7 +1005,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    maxWidth: "80%",
+    maxWidth: "82%",
   },
   userBubble: { backgroundColor: "#8e44ad", borderBottomRightRadius: 4 },
   aiBubble: { borderBottomLeftRadius: 4 },

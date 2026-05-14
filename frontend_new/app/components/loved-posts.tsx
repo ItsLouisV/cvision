@@ -10,15 +10,19 @@ import {
   View,
   StatusBar,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { Colors } from "@/constants/themes";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { supabase } from "@/lib/supabase";
 import { PostService } from "@/utils/postInteractionService";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { formatSalary, formatTime } from "@/utils/formatters";
 // Giả sử Louis đã tách PostCard ra một file riêng để dùng chung
-import PostCard from "@/components/ui/PostCard";
+import { PostCard } from "@/components/PostCard";
 
 const LovedPostsScreen = () => {
   const colorScheme = useColorScheme();
@@ -66,7 +70,18 @@ const LovedPostsScreen = () => {
           const job = item.job_posts;
           if (!job) return null;
           return {
-            ...job,
+            id: job.id,
+            userId: job.user_profiles?.id || job.user_id,
+            userName: job.user_profiles?.full_name || job.company_name || "Người dùng",
+            userAvatar: job.user_profiles?.avatar_url || job.employers?.company_logo || "https://via.placeholder.com/150",
+            is_verified: job.employers?.is_verified || false,
+            companyName: job.employers?.company_name || "",
+            time: formatTime(job.created_at),
+            title: job.title,
+            content: job.description,
+            type: job.job_type,
+            salary: formatSalary(job.salary_min, job.salary_max),
+            location: job.location,
             likes: job.loved_posts?.[0]?.count || 0,
             replies: job.comments?.[0]?.count || 0,
             isLiked: true, // Chắc chắn là true vì đang ở màn hình Loved
@@ -93,8 +108,17 @@ const LovedPostsScreen = () => {
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <View style={[styles.emptyIconWrapper, { backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7" }]}>
-        <HeartOff size={48} color={isDark ? "#444" : "#AAA"} strokeWidth={1.5} />
+      <View
+        style={[
+          styles.emptyIconWrapper,
+          { backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7" },
+        ]}
+      >
+        <HeartOff
+          size={48}
+          color={isDark ? "#444" : "#AAA"}
+          strokeWidth={1.5}
+        />
       </View>
       <Text style={[styles.emptyTitle, { color: theme.text }]}>
         Chưa có bài viết yêu thích
@@ -115,21 +139,24 @@ const LovedPostsScreen = () => {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      
+
       {/* HEADER */}
       <View
         style={[
           styles.header,
-          { 
+          {
             paddingTop: insets.top,
             backgroundColor: theme.background,
-            borderBottomColor: isDark ? "#1C1C1E" : "#F2F2F7" 
+            borderBottomColor: isDark ? "#1C1C1E" : "#F2F2F7",
           },
         ]}
       >
-        <TouchableOpacity 
-          onPress={() => router.back()} 
-          style={[styles.backBtn, { backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7" }]}
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={[
+            styles.backBtn,
+            { backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7" },
+          ]}
         >
           <ChevronLeft size={24} color={theme.text} />
         </TouchableOpacity>
@@ -152,9 +179,11 @@ const LovedPostsScreen = () => {
           renderItem={({ item }) => (
             <PostCard
               post={item}
+              isDark={isDark}
+              theme={theme}
               isLiked={true}
               onToggleLike={() => handleToggleLike(item.id)}
-              // Truyền thêm các props cần thiết cho PostCard của Louis
+              onPressPost={() => router.push(`/jobs/${item.id}`)}
             />
           )}
           ListEmptyComponent={renderEmpty}
@@ -182,20 +211,20 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
   },
-  headerTitle: { 
-    fontSize: 20, 
+  headerTitle: {
+    fontSize: 20,
     fontWeight: "800",
     letterSpacing: -0.5,
   },
-  backBtn: { 
+  backBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
   },
-  listPadding: { 
-    paddingBottom: 40, 
+  listPadding: {
+    paddingBottom: 40,
     paddingTop: 12,
   },
   emptyContainer: {
@@ -236,8 +265,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  exploreBtnText: { 
-    color: "#FFF", 
+  exploreBtnText: {
+    color: "#FFF",
     fontWeight: "800",
     fontSize: 16,
   },

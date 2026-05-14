@@ -115,7 +115,7 @@ export const CVPreviewModal = ({
             <View style={styles.loaderContainer}>
               <ActivityIndicator size="large" color="#8e44ad" />
               <Text style={[styles.loadingText, { color: theme.text }]}>
-                Đang nạp dữ liệu bảo mật...
+                Đang tải...
               </Text>
               {Platform.OS === "android" && (
                 <Text style={styles.subLoadingText}>

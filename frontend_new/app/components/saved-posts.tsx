@@ -10,14 +10,18 @@ import {
   View,
   StatusBar,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
-import PostCard from "@/components/ui/PostCard";
+import { PostCard } from "@/components/PostCard";
 import { Colors } from "@/constants/themes";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { supabase } from "@/lib/supabase";
 import { PostService } from "@/utils/postInteractionService";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { formatSalary, formatTime } from "@/utils/formatters";
 
 const SavedPostsScreen = () => {
   const colorScheme = useColorScheme();
@@ -64,7 +68,18 @@ const SavedPostsScreen = () => {
         ?.map((item: any) => {
           if (!item.job_posts) return null;
           return {
-            ...item.job_posts,
+            id: item.job_posts.id,
+            userId: item.job_posts.user_profiles?.id || item.job_posts.user_id,
+            userName: item.job_posts.user_profiles?.full_name || item.job_posts.company_name || "Người dùng",
+            userAvatar: item.job_posts.user_profiles?.avatar_url || item.job_posts.employers?.company_logo || "https://via.placeholder.com/150",
+            is_verified: item.job_posts.employers?.is_verified || false,
+            companyName: item.job_posts.employers?.company_name || "",
+            time: formatTime(item.job_posts.created_at),
+            title: item.job_posts.title,
+            content: item.job_posts.description,
+            type: item.job_posts.job_type,
+            salary: formatSalary(item.job_posts.salary_min, item.job_posts.salary_max),
+            location: item.job_posts.location,
             saved_folder: item.folder,
             likes: item.job_posts.loved_posts?.[0]?.count || 0,
             replies: item.job_posts.comments?.[0]?.count || 0,
@@ -89,6 +104,14 @@ const SavedPostsScreen = () => {
     }
   };
 
+  const handleToggleLike = async (postId: string) => {
+    const result = await PostService.toggleLike(postId);
+    if (result.action === "unloved") {
+      // Nếu người dùng bỏ tim, xóa ngay khỏi danh sách hiển thị
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+    }
+  };
+
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
       <View
@@ -99,7 +122,11 @@ const SavedPostsScreen = () => {
           },
         ]}
       >
-        <BookmarkX size={48} color={isDark ? "#444" : "#AAA"} strokeWidth={1.5} />
+        <BookmarkX
+          size={48}
+          color={isDark ? "#444" : "#AAA"}
+          strokeWidth={1.5}
+        />
       </View>
       <Text style={[styles.emptyTitle, { color: theme.text }]}>
         Thư mục trống
@@ -125,26 +152,30 @@ const SavedPostsScreen = () => {
       <View
         style={[
           styles.header,
-          { 
+          {
             paddingTop: insets.top,
             backgroundColor: theme.background,
-            borderBottomColor: isDark ? "#1C1C1E" : "#F2F2F7" 
+            borderBottomColor: isDark ? "#1C1C1E" : "#F2F2F7",
           },
         ]}
       >
-        <TouchableOpacity 
-          onPress={() => router.back()} 
-          style={[styles.backBtn, { backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7" }]}
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={[
+            styles.backBtn,
+            { backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7" },
+          ]}
         >
           <ChevronLeft size={24} color={theme.text} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerTitle, { color: theme.text }]}>
-          Đã lưu
-        </Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Đã lưu</Text>
 
-        <TouchableOpacity 
-          style={[styles.folderBtn, { backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7" }]}
+        <TouchableOpacity
+          style={[
+            styles.folderBtn,
+            { backgroundColor: isDark ? "#1C1C1E" : "#F2F2F7" },
+          ]}
         >
           <FolderOpen size={22} color={theme.text} />
         </TouchableOpacity>
@@ -174,9 +205,13 @@ const SavedPostsScreen = () => {
               )}
               <PostCard
                 post={item}
-                isSaved={true}
-                onToggleSave={() => handleToggleSave(item.id)}
-                onPress={(id) => router.push(`/jobs/${id}`)}
+                isDark={isDark}
+                theme={theme}
+                // isLiked={true}
+                isBookmarked={true}
+                // onToggleLike={() => handleToggleLike(item.id)}
+                onToggleBookmark={() => handleToggleSave(item.id)}
+                onPressPost={() => router.push(`/jobs/${item.id}`)}
               />
             </View>
           )}
@@ -207,8 +242,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
   },
-  headerTitle: { 
-    fontSize: 20, 
+  headerTitle: {
+    fontSize: 20,
     fontWeight: "800",
     letterSpacing: -0.5,
   },
@@ -226,8 +261,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 20,
   },
-  listPadding: { 
-    paddingBottom: 40, 
+  listPadding: {
+    paddingBottom: 40,
     paddingTop: 12,
   },
 
@@ -267,9 +302,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
   },
-  emptyTitle: { 
-    fontSize: 22, 
-    fontWeight: "800", 
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: "800",
     marginBottom: 12,
     textAlign: "center",
   },
@@ -290,9 +325,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  exploreBtnText: { 
-    color: "#FFF", 
-    fontWeight: "800", 
-    fontSize: 16 
+  exploreBtnText: {
+    color: "#FFF",
+    fontWeight: "800",
+    fontSize: 16,
   },
 });

@@ -333,344 +333,345 @@ const JobDetailScreen = () => {
   const surfaceBg = isDark ? "#0d0d0d" : "#ebebef";
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: isDark ? "#000" : "#F2F2F7" }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <View style={{ flex: 1, backgroundColor: isDark ? "#000" : "#F2F2F7" }}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
-      {/* ── HEADER ── */}
-      <View
-        style={[
-          styles.header,
-          { paddingTop: insets.top, height: insets.top + 48 },
-        ]}
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerBg }]}>
-          <BlurView
-            intensity={isDark ? 40 : 80}
-            style={StyleSheet.absoluteFill}
-            tint={isDark ? "dark" : "light"}
-          />
-          <View style={[styles.headerLine, { backgroundColor: separator }]} />
-        </Animated.View>
-
-        <View style={styles.headerInner}>
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.back();
-            }}
-            hitSlop={8}
-            style={styles.backBtn}
-          >
-            <ChevronLeft size={28} color={theme.text} />
-          </TouchableOpacity>
-
-          <Animated.Text
-            style={[
-              styles.headerTitleText,
-              { color: theme.text, opacity: headerBg },
-            ]}
-            numberOfLines={1}
-          >
-            {job.title}
-          </Animated.Text>
-
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              toggleSave();
-            }}
-            hitSlop={8}
-            style={styles.backBtn}
-          >
-            <Bookmark
-              size={22}
-              color={isSaved ? "#007AFF" : theme.text}
-              fill={isSaved ? "#007AFF" : "none"}
+        {/* ── HEADER ── */}
+        <View
+          style={[
+            styles.header,
+            { paddingTop: insets.top, height: insets.top + 48 },
+          ]}
+        >
+          <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerBg }]}>
+            <BlurView
+              intensity={isDark ? 40 : 80}
+              style={StyleSheet.absoluteFill}
+              tint={isDark ? "dark" : "light"}
             />
-          </TouchableOpacity>
+            <View style={[styles.headerLine, { backgroundColor: separator }]} />
+          </Animated.View>
 
-          <TouchableOpacity
-            onPress={() => {
+          <View style={styles.headerInner}>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.back();
+              }}
+              hitSlop={8}
+              style={styles.backBtn}
+            >
+              <ChevronLeft size={28} color={theme.text} />
+            </TouchableOpacity>
+
+            <Animated.Text
+              style={[
+                styles.headerTitleText,
+                { color: theme.text, opacity: headerBg },
+              ]}
+              numberOfLines={1}
+            >
+              {job.title}
+            </Animated.Text>
+
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                toggleSave();
+              }}
+              hitSlop={8}
+              style={styles.backBtn}
+            >
+              <Bookmark
+                size={22}
+                color={isSaved ? "#007AFF" : theme.text}
+                fill={isSaved ? "#007AFF" : "none"}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onShare();
+              }}
+              hitSlop={8}
+              style={styles.backBtn}
+            >
+              <Share2 size={22} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── SCROLL CONTENT ── */}
+        <Animated.ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingTop: insets.top + 48,
+            paddingBottom: 120,
+          }}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: false },
+          )}
+          scrollEventThrottle={16}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* ── Company + Title ── */}
+          <View style={styles.topSection}>
+            <View style={styles.companyRow}>
+              <Image
+                source={{
+                  uri:
+                    job.user_profiles?.avatar_url ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(job.user_profiles?.full_name || "H")}&background=007AFF&color=fff`,
+                }}
+                style={styles.companyLogo}
+              />
+              <View style={{ flex: 1 }}>
+                <View style={styles.companyNameRow}>
+                  <Text
+                    style={[styles.companyName, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {job.user_profiles?.full_name}
+                  </Text>
+                  {job.user_profiles?.is_verified && (
+                    <CheckCircle2
+                      size={16}
+                      color="#007AFF"
+                      fill="rgba(0,122,255,0.15)"
+                      style={{ marginLeft: 4 }}
+                    />
+                  )}
+                </View>
+                <Text style={[styles.postedTime, { color: secondaryText }]}>
+                  Đăng {formatDate(job.created_at)} · Hạn{" "}
+                  {formatDate(job.expired_at)}
+                </Text>
+              </View>
+              <TouchableOpacity hitSlop={8}>
+                <MoreHorizontal size={22} color={secondaryText} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.jobTitle, { color: theme.text }]}>
+              {job.title}
+            </Text>
+
+            {/* Quick tags */}
+            <View style={styles.tagsRow}>
+              <View style={[styles.tag, { backgroundColor: surfaceBg }]}>
+                <CircleDollarSign size={14} color={secondaryText} />
+                <Text style={[styles.tagText, { color: theme.text }]}>
+                  {formatSalary(
+                    job.salary_from,
+                    job.salary_to,
+                    job.currency,
+                    job.salary_unit,
+                  )}
+                </Text>
+              </View>
+              <View style={[styles.tag, { backgroundColor: surfaceBg }]}>
+                <Briefcase size={14} color={secondaryText} />
+                <Text style={[styles.tagText, { color: theme.text }]}>
+                  {getJobTypeLabel(job.job_type)}
+                </Text>
+              </View>
+              <View style={[styles.tag, { backgroundColor: surfaceBg }]}>
+                <MapPin size={14} color={secondaryText} />
+                <Text
+                  style={[styles.tagText, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {job.location || "Remote"}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.sep, { backgroundColor: separator }]} />
+
+          {/* ── Mô tả ── */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              Mô tả công việc
+            </Text>
+            <Text style={[styles.body, { color: theme.text }]}>
+              {job.description}
+            </Text>
+          </View>
+
+          {/* ── Yêu cầu ── */}
+          {job.requirements && (
+            <>
+              <View style={[styles.sep, { backgroundColor: separator }]} />
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                  Yêu cầu ứng viên
+                </Text>
+                <Text style={[styles.body, { color: theme.text }]}>
+                  {job.requirements}
+                </Text>
+              </View>
+            </>
+          )}
+
+          {/* ── Action row (like Threads) ── */}
+          <ActionRow
+            isDark={isDark}
+            isLiked={isLoved}
+            onLike={toggleSave}
+            onComment={() => {}}
+            onShare={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               onShare();
             }}
-            hitSlop={8}
-            style={styles.backBtn}
-          >
-            <Share2 size={22} color={theme.text} />
-          </TouchableOpacity>
-        </View>
-      </View>
+            shareIcon="share2"
+            style={[styles.actionsRow, { backgroundColor: surfaceBg }]}
+          />
 
-      {/* ── SCROLL CONTENT ── */}
-      <Animated.ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingTop: insets.top + 48,
-          paddingBottom: 120,
-        }}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false },
-        )}
-        scrollEventThrottle={16}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* ── Company + Title ── */}
-        <View style={styles.topSection}>
-          <View style={styles.companyRow}>
-            <Image
-              source={{
-                uri:
-                  job.user_profiles?.avatar_url ||
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(job.user_profiles?.full_name || "H")}&background=007AFF&color=fff`,
-              }}
-              style={styles.companyLogo}
-            />
-            <View style={{ flex: 1 }}>
-              <View style={styles.companyNameRow}>
-                <Text
-                  style={[styles.companyName, { color: theme.text }]}
-                  numberOfLines={1}
-                >
-                  {job.user_profiles?.full_name}
-                </Text>
-                {job.user_profiles?.is_verified && (
-                  <CheckCircle2
-                    size={16}
-                    color="#007AFF"
-                    fill="rgba(0,122,255,0.15)"
-                    style={{ marginLeft: 4 }}
-                  />
-                )}
-              </View>
-              {/* <Text style={[styles.companyName, { color: theme.text }]}>
-                {job.employers?.company_name}
-              </Text> */}
-              <Text style={[styles.postedTime, { color: secondaryText }]}>
-                Đăng {formatDate(job.created_at)} · Hạn{" "}
-                {formatDate(job.expired_at)}
-              </Text>
-            </View>
-            <TouchableOpacity hitSlop={8}>
-              <MoreHorizontal size={22} color={secondaryText} />
-            </TouchableOpacity>
-          </View>
+          {/* ── Comments ── */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              Bình luận · {MOCK_COMMENTS.length}
+            </Text>
 
-          <Text style={[styles.jobTitle, { color: theme.text }]}>
-            {job.title}
-          </Text>
-
-          {/* Quick tags */}
-          <View style={styles.tagsRow}>
-            <View style={[styles.tag, { backgroundColor: surfaceBg }]}>
-              <CircleDollarSign size={14} color={secondaryText} />
-              <Text style={[styles.tagText, { color: theme.text }]}>
-                {formatSalary(
-                  job.salary_from,
-                  job.salary_to,
-                  job.currency,
-                  job.salary_unit,
-                )}
-              </Text>
-            </View>
-            <View style={[styles.tag, { backgroundColor: surfaceBg }]}>
-              <Briefcase size={14} color={secondaryText} />
-              <Text style={[styles.tagText, { color: theme.text }]}>
-                {getJobTypeLabel(job.job_type)}
-              </Text>
-            </View>
-            <View style={[styles.tag, { backgroundColor: surfaceBg }]}>
-              <MapPin size={14} color={secondaryText} />
-              <Text
-                style={[styles.tagText, { color: theme.text }]}
-                numberOfLines={1}
-              >
-                {job.location || "Remote"}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={[styles.sep, { backgroundColor: separator }]} />
-
-        {/* ── Mô tả ── */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Mô tả công việc
-          </Text>
-          <Text style={[styles.body, { color: theme.text }]}>
-            {job.description}
-          </Text>
-        </View>
-
-        {/* ── Yêu cầu ── */}
-        {job.requirements && (
-          <>
-            <View style={[styles.sep, { backgroundColor: separator }]} />
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                Yêu cầu ứng viên
-              </Text>
-              <Text style={[styles.body, { color: theme.text }]}>
-                {job.requirements}
-              </Text>
-            </View>
-          </>
-        )}
-
-        {/* ── Action row (like Threads) ── */}
-        <ActionRow
-          isDark={isDark}
-          isLiked={isLoved}
-          onLike={toggleSave}
-          onComment={() => {}}
-          onShare={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onShare();
-          }}
-          shareIcon="share2"
-          style={[styles.actionsRow, { backgroundColor: surfaceBg }]}
-        />
-
-        {/* ── Comments ── */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Bình luận · {MOCK_COMMENTS.length}
-          </Text>
-
-          {MOCK_COMMENTS.map((cmt) => (
-            <View key={cmt.id} style={styles.comment}>
-              <Image
-                source={{ uri: cmt.avatar }}
-                style={styles.commentAvatar}
-              />
-              <View style={{ flex: 1 }}>
-                <View style={styles.commentTop}>
-                  <Text style={[styles.commentName, { color: theme.text }]}>
-                    {cmt.user}
-                  </Text>
-                  <Text style={[styles.commentTime, { color: secondaryText }]}>
-                    {cmt.time}
+            {MOCK_COMMENTS.map((cmt) => (
+              <View key={cmt.id} style={styles.comment}>
+                <Image
+                  source={{ uri: cmt.avatar }}
+                  style={styles.commentAvatar}
+                />
+                <View style={{ flex: 1 }}>
+                  <View style={styles.commentTop}>
+                    <Text style={[styles.commentName, { color: theme.text }]}>
+                      {cmt.user}
+                    </Text>
+                    <Text style={[styles.commentTime, { color: secondaryText }]}>
+                      {cmt.time}
+                    </Text>
+                  </View>
+                  <Text style={[styles.commentBody, { color: theme.text }]}>
+                    {cmt.content}
                   </Text>
                 </View>
-                <Text style={[styles.commentBody, { color: theme.text }]}>
-                  {cmt.content}
-                </Text>
               </View>
-            </View>
-          ))}
-        </View>
-      </Animated.ScrollView>
+            ))}
+          </View>
+        </Animated.ScrollView>
 
-      {/* ── FIXED BOTTOM BAR ── */}
-      <Animated.View
-        style={[
-          styles.bottomBar,
-          {
-            paddingBottom:
-              Platform.OS === "ios" ? (insets.bottom || 12) + 4 : 14,
-          },
-        ]}
-      >
-        <BlurView
-          intensity={isDark ? 50 : 90}
-          style={StyleSheet.absoluteFill}
-          tint={isDark ? "dark" : "light"}
-        />
-        <View style={[styles.bottomLine, { backgroundColor: separator }]} />
+        {/* ── FIXED BOTTOM BAR ── */}
+        <Animated.View
+          style={[
+            styles.bottomBar,
+            {
+              paddingBottom:
+                Platform.OS === "ios" ? (insets.bottom || 12) + 4 : 14,
+            },
+          ]}
+        >
+          <BlurView
+            intensity={isDark ? 50 : 90}
+            style={StyleSheet.absoluteFill}
+            tint={isDark ? "dark" : "light"}
+          />
+          <View style={[styles.bottomLine, { backgroundColor: separator }]} />
 
-        <View style={styles.bottomInner}>
-          {/* Comment Input */}
-          <Animated.View
-            style={[
-              styles.bottomInputWrap,
-              {
-                backgroundColor: surfaceBg,
-                borderColor: isSendMode ? "#007AFF" : separator,
-                flex: 1,
-                marginRight: 10,
-              },
-            ]}
-          >
-            <TextInput
-              ref={inputRef}
-              placeholder="Viết bình luận..."
-              placeholderTextColor={secondaryText}
-              style={[styles.bottomInput, { color: theme.text }]}
-              value={commentText}
-              onChangeText={setCommentText}
-              onFocus={onInputFocus}
-              onBlur={onInputBlur}
-              multiline
-            />
-          </Animated.View>
-
-          {/* Apply Button / Send Button */}
-          <Animated.View
-            style={{
-              width: expandAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [(width - 32 - 10) / 2, 48],
-              }),
-              height: 48,
-            }}
-          >
-            <TouchableOpacity
+          <View style={styles.bottomInner}>
+            {/* Comment Input */}
+            <Animated.View
               style={[
-                styles.applyBtn,
-                { 
-                  backgroundColor: isSendMode 
-                    ? "#007AFF" 
-                    : hasApplied 
-                      ? (applicationStatus === "pending" ? "#e74c3c" : separator) 
-                      : "#007AFF" 
+                styles.bottomInputWrap,
+                {
+                  backgroundColor: surfaceBg,
+                  borderColor: isSendMode ? "#007AFF" : separator,
+                  flex: 1,
+                  marginRight: 10,
                 },
               ]}
-              onPress={() => {
-                if (isSendMode) {
-                  if (commentText.trim()) {
-                    // Send comment
-                    setCommentText("");
-                    inputRef.current?.blur();
-                  }
-                } else if (hasApplied && applicationStatus === "pending") {
-                  Alert.alert(
-                    "Đã nghĩ kĩ chưa? Thu hồi nhá!!",
-                    "Bạn có chắc chắn muốn thu hồi hồ sơ ứng tuyển này không?",
-                    [
-                      { text: "Không", style: "cancel" },
-                      {
-                        text: "Thu hồi",
-                        style: "destructive",
-                        onPress: handleRevokeApplication,
-                      },
-                    ]
-                  );
-                } else if (!hasApplied) {
-                  setIsApplyModalVisible(true);
-                }
-              }}
-              activeOpacity={0.8}
-              disabled={hasApplied && applicationStatus !== "pending" && !isSendMode}
             >
-              {isSendMode ? (
-                <Send
-                  size={20}
-                  color={commentText.trim() ? "#FFF" : "rgba(255,255,255,0.4)"}
-                />
-              ) : (
-                <Text style={[styles.applyText, hasApplied && applicationStatus !== "pending" && { color: secondaryText }]} numberOfLines={1}>
-                  {hasApplied ? (applicationStatus === "pending" ? "Thu hồi" : "Đã tiếp nhận") : "Ứng tuyển ngay"}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      </Animated.View>
+              <TextInput
+                ref={inputRef}
+                placeholder="Viết bình luận..."
+                placeholderTextColor={secondaryText}
+                style={[styles.bottomInput, { color: theme.text }]}
+                value={commentText}
+                onChangeText={setCommentText}
+                onFocus={onInputFocus}
+                onBlur={onInputBlur}
+                multiline
+              />
+            </Animated.View>
+
+            {/* Apply Button / Send Button */}
+            <Animated.View
+              style={{
+                width: expandAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [(width - 32 - 10) / 2, 48],
+                }),
+                height: 48,
+              }}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.applyBtn,
+                  { 
+                    backgroundColor: isSendMode 
+                      ? "#007AFF" 
+                      : (hasApplied && applicationStatus !== "rejected")
+                        ? (applicationStatus === "pending" ? "#e74c3c" : separator) 
+                        : "#007AFF" 
+                  },
+                ]}
+                onPress={() => {
+                  if (isSendMode) {
+                    if (commentText.trim()) {
+                      // Send comment
+                      setCommentText("");
+                      inputRef.current?.blur();
+                    }
+                  } else if (hasApplied && applicationStatus === "pending") {
+                    Alert.alert(
+                      "Đã nghĩ kĩ chưa? Thu hồi nhá!!",
+                      "Bạn có chắc chắn muốn thu hồi hồ sơ ứng tuyển này không?",
+                      [
+                        { text: "Không", style: "cancel" },
+                        {
+                          text: "Thu hồi",
+                          style: "destructive",
+                          onPress: handleRevokeApplication,
+                        },
+                      ]
+                    );
+                  } else if (!hasApplied || applicationStatus === "rejected") {
+                    setIsApplyModalVisible(true);
+                  }
+                }}
+                activeOpacity={0.8}
+                disabled={hasApplied && applicationStatus !== "pending" && applicationStatus !== "rejected" && !isSendMode}
+              >
+                {isSendMode ? (
+                  <Send
+                    size={20}
+                    color={commentText.trim() ? "#FFF" : "rgba(255,255,255,0.4)"}
+                  />
+                ) : (
+                  <Text style={[styles.applyText, hasApplied && applicationStatus !== "pending" && applicationStatus !== "rejected" && { color: secondaryText }]} numberOfLines={1}>
+                    {hasApplied && applicationStatus !== "rejected" 
+                      ? (applicationStatus === "pending" ? "Thu hồi" : "Đã tiếp nhận") 
+                      : "Ứng tuyển ngay"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </Animated.View>
+      </KeyboardAvoidingView>
 
       {/* MODAL ỨNG TUYỂN */}
       <ApplyJobModal
@@ -686,7 +687,7 @@ const JobDetailScreen = () => {
           setApplicationStatus("pending");
         }}
       />
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 
