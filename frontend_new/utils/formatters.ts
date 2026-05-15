@@ -1,26 +1,31 @@
-// d:\CodeApp\CVision\frontend_new\utils\formatters.ts
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+import "dayjs/locale/vi";
+
+// Cấu hình dayjs để dùng tiếng Việt và tính năng relative time
+dayjs.extend(relativeTime);
+dayjs.locale("vi");
 
 export const formatTime = (dateString: string, options?: { short?: boolean }) => {
-  if (!dateString) return options?.short ? "bây giờ" : "Bây giờ";
-  try {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (!dateString) return options?.short ? "vừa xong" : "Vừa xong";
+  
+  const date = dayjs(dateString);
+  
+  if (options?.short) {
+    const diffInMinutes = dayjs().diff(date, "minute");
+    if (diffInMinutes < 1) return "vừa xong";
+    if (diffInMinutes < 60) return `${diffInMinutes}m`;
     
-    if (diffInSeconds < 60) return options?.short ? "vừa xong" : "Vừa xong";
-    const diffInMinutes = Math.floor(diffInSeconds / 60);
-    if (diffInMinutes < 60) return options?.short ? `${diffInMinutes}p` : `${diffInMinutes} phút trước`;
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return options?.short ? `${diffInHours}h` : `${diffInHours} giờ trước`;
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 30) return options?.short ? `${diffInDays} ngày` : `${diffInDays} ngày trước`;
-    const diffInMonths = Math.floor(diffInDays / 30);
-    if (diffInMonths < 12) return options?.short ? `${diffInMonths} tháng` : `${diffInMonths} tháng trước`;
-    const diffInYears = Math.floor(diffInMonths / 12);
-    return options?.short ? `${diffInYears} năm` : `${diffInYears} năm trước`;
-  } catch {
-    return dateString;
+    const diffInHours = dayjs().diff(date, "hour");
+    if (diffInHours < 24) return `${diffInHours}h`;
+    
+    const diffInDays = dayjs().diff(date, "day");
+    if (diffInDays < 30) return `${diffInDays}d`;
+    
+    return date.format("DD/MM");
   }
+
+  return date.fromNow();
 };
 
 export const formatSalary = (

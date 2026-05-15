@@ -214,6 +214,18 @@ export const PostCard = React.memo(
             </PressableOpacity>
           )}
 
+          {/* BENEFITS (if expanded or short) */}
+          {post.benefits && (isExpanded || !isClamped) ? (
+            <View style={styles.benefitsContainer}>
+              <View style={[styles.benefitIcon, { backgroundColor: isDark ? "rgba(46,204,113,0.15)" : "rgba(46,204,113,0.1)" }]}>
+                <Heart size={12} color="#2ecc71" fill="#2ecc71" />
+              </View>
+              <Text style={[styles.benefitsText, { color: theme.text }]}>
+                Quyền lợi: {post.benefits}
+              </Text>
+            </View>
+          ) : null}
+
           {/* JOB META */}
           <View style={styles.jobMetaRow}>
             <View
@@ -354,6 +366,31 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 13.5,
     marginTop: 3,
+  },
+  benefitsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    backgroundColor: "rgba(46,204,113,0.05)",
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#2ecc71",
+  },
+  benefitIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+  },
+  benefitsText: {
+    fontSize: 13,
+    fontWeight: "500",
+    flex: 1,
+    lineHeight: 18,
   },
 
   // ── Meta chips ──

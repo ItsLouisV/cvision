@@ -52,9 +52,10 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
         job_data = session_data.get('job_posts', {})
         session_language = session_data.get('language', 'Vietnamese')
         
-        # Lấy title / requirements từ custom field nếu không có job_id
+        # Lấy title / requirements / level từ custom field nếu không có job_id
         final_job_title = job_data.get('title') if job_data else session_data.get('custom_job_title', 'Không xác định')
         final_requirements = job_data.get('requirements', '') if job_data else f"Ứng viên apply vị trí {session_data.get('custom_level')}."
+        final_level = session_data.get('custom_level', 'Junior')
 
         # Lấy lịch sử tin nhắn
         messages = supabase_client.table('interview_messages') \
@@ -104,6 +105,7 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                     # Khởi tạo luồng stream từ InterviewAIService
                     stream_gen = interview_ai.generate_question_stream(
                         job_title=final_job_title,
+                        job_level=final_level,
                         requirements=final_requirements,
                         cv_data=cv_text,
                         language=session_language,
@@ -232,6 +234,7 @@ async def websocket_interview(websocket: WebSocket, session_id: str):
                     })
                     eval_result = await interview_ai.evaluate_interview(
                         job_title=final_job_title,
+                        job_level=final_level,
                         language=session_language,
                         messages=history,
                         session_id=session_id  # Truyền session_id để audit log

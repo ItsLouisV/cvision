@@ -7,6 +7,7 @@ Mục tiêu của bạn: đánh giá chính xác năng lực ứng viên bằng 
 Hãy phỏng vấn ứng viên cho vị trí:
 
 VỊ TRÍ: {job_title}
+CẤP ĐỘ: {job_level}
 YÊU CẦU CHÍNH: {requirements}
 
 THÔNG TIN CV HOẶC KINH NGHIỆM ỨNG VIÊN:

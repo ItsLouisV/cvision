@@ -214,37 +214,26 @@ export const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
         return;
       }
 
-      const { error } = await supabase.from("applications").insert([
-        {
+      const response = await fetch(`${ENV.API_URL}/jobs/apply`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           job_id: jobId,
           user_id: user.id,
           cv_id: selectedCvId,
-          cover_letter: coverLetter.trim() || null,
-          full_name: fullName.trim() || null,
-          email: email.trim() || null,
-          phone: phone.trim() || null,
-        },
-      ]);
+          cover_letter: coverLetter.trim() || undefined,
+          full_name: fullName.trim() || undefined,
+          email: email.trim() || undefined,
+          phone: phone.trim() || undefined,
+        }),
+      });
 
-      if (error) {
-        if (error.code === "23505") { // unique constraint violation
-          throw new Error("Bạn đã ứng tuyển công việc này rồi.");
-        }
-        throw error;
-      }
+      const responseData = await response.json();
 
-      // Generate Notification to Job Owner
-      if (jobOwnerId && jobOwnerId !== user.id) {
-        const applicantName = user.user_metadata?.full_name || "Một ứng viên";
-        await supabase.from("notifications").insert([
-          {
-            user_id: jobOwnerId,
-            title: "Có ứng viên mới!",
-            content: `${applicantName} vừa ứng tuyển vào vị trí ${jobTitle}. Bấm để xem ngay!`,
-            data: { type: "application", job_id: jobId, applicant_id: user.id },
-            type: "application",
-          },
-        ]);
+      if (!response.ok) {
+        throw new Error(responseData.detail || "Không thể ứng tuyển lúc này.");
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

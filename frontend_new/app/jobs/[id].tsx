@@ -520,6 +520,24 @@ const JobDetailScreen = () => {
             </>
           )}
 
+          {/* ── Quyền lợi ── */}
+          {job.benefits && (
+            <>
+              <View style={[styles.sep, { backgroundColor: separator }]} />
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                  Quyền lợi (Benefits)
+                </Text>
+                <View style={styles.benefitsBox}>
+                   <Heart size={16} color="#2ecc71" fill="#2ecc71" style={{ marginRight: 8, marginTop: 2 }} />
+                   <Text style={[styles.body, { color: theme.text, flex: 1 }]}>
+                    {job.benefits}
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
+
           {/* ── Action row (like Threads) ── */}
           <ActionRow
             isDark={isDark}
@@ -809,6 +827,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 24,
     opacity: 0.9,
+  },
+  benefitsBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 4,
   },
 
   // ── Action row ──

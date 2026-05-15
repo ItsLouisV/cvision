@@ -68,6 +68,7 @@ const CreateJobPost = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [requirements, setRequirements] = useState("");
+  const [benefits, setBenefits] = useState("");
   const [location, setLocation] = useState("");
   const [salaryFrom, setSalaryFrom] = useState("");
   const [salaryTo, setSalaryTo] = useState("");
@@ -193,6 +194,7 @@ const CreateJobPost = () => {
         title: title.trim(),
         description: description.trim(),
         requirements: requirements.trim(),
+        benefits: benefits.trim(),
         location: location.trim(),
         salary_from: Number(salaryFrom) || 0,
         salary_to: Number(salaryTo) || 0,
@@ -408,6 +410,17 @@ const CreateJobPost = () => {
               style={[styles.textArea, { color: theme.text, minHeight: 80 }]}
               value={requirements}
               onChangeText={setRequirements}
+              scrollEnabled={false}
+            />
+            <View style={styles.divider} />
+            <Text style={styles.label}>QUYỀN LỢI (BENEFITS)</Text>
+            <TextInput
+              placeholder="Bảo hiểm, thưởng, du lịch, môi trường..."
+              placeholderTextColor="#8E8E93"
+              multiline
+              style={[styles.textArea, { color: theme.text, minHeight: 80 }]}
+              value={benefits}
+              onChangeText={setBenefits}
               scrollEnabled={false}
             />
           </View>

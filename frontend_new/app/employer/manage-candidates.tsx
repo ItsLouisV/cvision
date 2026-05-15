@@ -34,6 +34,7 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Toast from "react-native-toast-message";
 import { CVPreviewModal } from "@/components/CVPreviewModal";
+import { AIFeedbackModal } from "@/components/AIFeedbackModal";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const timeAgo = (dateString: string) => {
@@ -63,6 +64,8 @@ export default function ManageCandidatesScreen() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewFileName, setPreviewFileName] = useState<string>("");
+  const [selectedFeedbackData, setSelectedFeedbackData] = useState<any>(null);
+  const [selectedMatchScore, setSelectedMatchScore] = useState<number>(0);
   const { user } = useCurrentUser();
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
 
@@ -72,6 +75,30 @@ export default function ManageCandidatesScreen() {
     { id: "accepted", label: "Đã nhận", count: 0 },
     { id: "rejected", label: "Từ chối", count: 0 },
   ];
+
+  // Realtime subscription
+  React.useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('applications_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'applications'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["manage_candidates", user.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
 
   const {
     data: applications = [],
@@ -494,6 +521,39 @@ export default function ManageCandidatesScreen() {
                   </Text>
                 </View>
 
+                {/* AI Match Score (Compact) */}
+                {item.ai_match_score != null ? (
+                  <View style={[styles.coverLetterWrap, { borderLeftColor: "#8e44ad" }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text style={[styles.coverLetterTitle, { color: theme.text, fontSize: 14, marginBottom: 0 }]}>
+                        ✨ Đánh giá AI: Độ phù hợp {item.ai_match_score}%
+                      </Text>
+                    </View>
+                    
+                    {item.ai_feedback?.ai_recommendation ? (
+                      <Text style={[styles.contactText, { 
+                        color: item.ai_match_score >= 80 ? "#2ecc71" : item.ai_match_score >= 60 ? "#f39c12" : "#e74c3c",
+                        fontWeight: "bold",
+                        marginBottom: 8
+                      }]}>
+                        Đề xuất: {item.ai_feedback.ai_recommendation === 'STRONG_MATCH' ? 'NÊN CHỌN' : item.ai_feedback.ai_recommendation === 'WEAK_MATCH' ? 'KHÔNG NÊN CHỌN' : 'CẦN XEM XÉT'}
+                      </Text>
+                    ) : null}
+
+                    <TouchableOpacity 
+                      style={[styles.cvBtn, { borderColor: "#8e44ad", height: 36, marginTop: 4, marginRight: 0 }]}
+                      onPress={() => {
+                        setSelectedFeedbackData(item.ai_feedback);
+                        setSelectedMatchScore(item.ai_match_score);
+                      }}
+                    >
+                      <Text style={[styles.cvBtnText, { color: "#8e44ad", textAlign: "center", marginLeft: 0 }]}>
+                        Xem chi tiết phân tích AI
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+
                 {/* Contact Info (if any) */}
                 {(item.full_name || item.email || item.phone) ? (
                   <View style={[styles.coverLetterWrap, { borderLeftColor: "#34C759" }]}>
@@ -635,6 +695,13 @@ export default function ManageCandidatesScreen() {
         onClose={() => setPreviewUrl(null)}
         fileUrl={previewUrl}
         fileName={previewFileName}
+      />
+
+      <AIFeedbackModal
+        visible={selectedFeedbackData !== null}
+        onClose={() => setSelectedFeedbackData(null)}
+        feedbackData={selectedFeedbackData}
+        matchScore={selectedMatchScore}
       />
     </SafeAreaView>
   );

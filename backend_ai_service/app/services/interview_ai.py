@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 class InterviewAIService:
     async def generate_question_stream(self,
                                        job_title: str,
+                                       job_level: str,
                                        requirements: str,
                                        cv_data: str,
                                        language: str,
@@ -41,6 +42,7 @@ class InterviewAIService:
 
         prompt = STREAM_INTERVIEW_PROMPT.format(
             job_title=job_title,
+            job_level=job_level,
             requirements=requirements,
             cv_data=cv_data,
             user_answers_count=user_answers_count,
@@ -65,6 +67,7 @@ class InterviewAIService:
 
     async def evaluate_interview(self,
                                  job_title: str,
+                                 job_level: str,
                                  language: str,
                                  messages: List[Dict[str, str]],
                                  session_id: str = "unknown") -> Dict[str, Any]:
@@ -80,7 +83,7 @@ class InterviewAIService:
             interview_text += f"{role}: {msg['content']}\n"
 
         prompt = f"""
-        Bạn là chuyên gia phỏng vấn nhân sự cấp cao, phong thái chuyên nghiệp, phong cách đôi khi NGHIÊM KHẮC, THẲNG THẮN, và có KHOAN NHƯỢNG dựa trên câu trả lời của ứng viên. Hãy đánh giá buổi phỏng vấn cho vị trí {job_title}:
+        Bạn là chuyên gia phỏng vấn nhân sự cấp cao, phong thái chuyên nghiệp, phong cách đôi khi NGHIÊM KHẮC, THẲNG THẮN, và có KHOAN NHƯỢNG dựa trên câu trả lời của ứng viên. Hãy đánh giá buổi phỏng vấn cho vị trí {job_title} ở cấp độ {job_level}:
 
         Dưới đây là Lịch sử trò chuyện:
         {interview_text}

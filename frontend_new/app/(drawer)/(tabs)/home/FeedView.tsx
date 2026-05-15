@@ -264,6 +264,7 @@ const FeedView = ({ onPressMenu, activeTab, onChangeTab }: FeedViewProps) => {
         location: job.location || "Toàn quốc",
         type: job.job_type,
         category: job.category,
+        benefits: job.benefits,
         is_verified: job.employers?.is_verified || false,
         likes: job.total_likes?.[0]?.count || 0,
         replies: job.total_comments?.[0]?.count || 0,
@@ -314,6 +315,29 @@ const FeedView = ({ onPressMenu, activeTab, onChangeTab }: FeedViewProps) => {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  // ── REALTIME FOR JOB POSTS ──
+  useEffect(() => {
+    const channel = supabase
+      .channel('job_posts_feed_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'job_posts'
+        },
+        (payload) => {
+          console.log('Realtime job update:', payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ["feed"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Listen for create-post events
   useEffect(() => {

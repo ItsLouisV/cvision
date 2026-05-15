@@ -26,6 +26,7 @@ class JobCreateRequest(BaseModel):
     title: str
     description: str
     requirements: Optional[str] = None
+    benefits: Optional[str] = None
     location: Optional[str] = None
     salary_from: Optional[float] = 0.0
     salary_to: Optional[float] = 0.0
@@ -35,6 +36,14 @@ class JobCreateRequest(BaseModel):
     category: Optional[str] = None
     job_type: str
 
+class JobApplyRequest(BaseModel):
+    job_id: str
+    user_id: str
+    cv_id: str
+    cover_letter: Optional[str] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
 
 # --- HÀM XỬ LÝ THÔNG BÁO NGẦM (BACKGROUND) ---
 
@@ -142,13 +151,27 @@ async def create_job(request: JobCreateRequest, background_tasks: BackgroundTask
 
 
 @router.post("/apply")
-async def apply_job(job_id: str, user_id: str, cv_id: str, cover_letter: str = None):
+async def apply_job(request: JobApplyRequest):
     try:
         supabase_client = supabase.get_client()
 
+        # Check if already applied
+        existing = supabase_client.table('applications').select('id, status').eq('job_id', request.job_id).eq('user_id', request.user_id).execute()
+        
+        is_update = False
+        app_id = None
+        
+        if existing.data and len(existing.data) > 0:
+            app_status = existing.data[0].get('status')
+            if app_status == 'rejected':
+                is_update = True
+                app_id = existing.data[0]['id']
+            else:
+                raise HTTPException(400, "Bạn đã ứng tuyển công việc này rồi.")
+
         # Lấy dữ liệu CV và Job
-        cv = supabase_client.table('user_cvs').select('parsed_data, embedding').eq('id', cv_id).single().execute()
-        job = supabase_client.table('job_posts').select('*').eq('id', job_id).single().execute()
+        cv = supabase_client.table('user_cvs').select('parsed_data, embedding').eq('id', request.cv_id).single().execute()
+        job = supabase_client.table('job_posts').select('*').eq('id', request.job_id).single().execute()
 
         # AI Phân tích Match Score
         prompt = JOB_MATCHING_PROMPT.format(
@@ -168,7 +191,7 @@ async def apply_job(job_id: str, user_id: str, cv_id: str, cover_letter: str = N
         # ── Ghi Audit Log ──
         ai_audit.log(
             action="job_match",
-            entity_id=f"{user_id}:{job_id}",
+            entity_id=f"{request.user_id}:{request.job_id}",
             ai_raw_output=ai_raw,
             final_output=final_analysis,
             was_adjusted=(ai_raw.get('match_score') != final_score),
@@ -177,34 +200,48 @@ async def apply_job(job_id: str, user_id: str, cv_id: str, cover_letter: str = N
 
         # 1. Lưu đơn ứng tuyển
         application_data = {
-            "job_id": job_id, "user_id": user_id, "cv_id": cv_id,
-            "status": "pending", "ai_match_score": final_score,
-            "ai_feedback": final_analysis  # Lưu full analysis bao gồm recommendation
+            "job_id": request.job_id, 
+            "user_id": request.user_id, 
+            "cv_id": request.cv_id,
+            "status": "pending", 
+            "ai_match_score": final_score,
+            "ai_feedback": final_analysis,  # Lưu full analysis bao gồm recommendation
+            "cover_letter": request.cover_letter,
+            "full_name": request.full_name,
+            "email": request.email,
+            "phone": request.phone,
+            "created_at": datetime.now(timezone.utc).isoformat() # Update timestamp on re-apply
         }
-        res = supabase_client.table('applications').insert(application_data).execute()
+        
+        if is_update:
+            res = supabase_client.table('applications').update(application_data).eq('id', app_id).execute()
+        else:
+            res = supabase_client.table('applications').insert(application_data).execute()
 
         # 2. Thông báo cho Nhà tuyển dụng (Type: status)
         recommendation_label = final_analysis.get('ai_recommendation', 'REVIEW')
         notif_employer = {
             "user_id": job.data['user_id'],
             "title": "📢 Ứng viên mới!",
-            "content": f"Một ứng viên vừa nộp đơn vào vị trí {job.data['title']}. AI đánh giá: {recommendation_label} ({final_score}%). Vui lòng xem xét hồ sơ.",
-            "data": {"type": "status", "job_id": job_id, "application_id": res.data[0]['id']},
+            "content": f"{request.full_name} vừa nộp đơn vào vị trí {job.data['title']}. AI đánh giá: {recommendation_label} ({final_score}%). Vui lòng xem xét hồ sơ.",
+            "data": {"type": "status", "job_id": request.job_id, "application_id": res.data[0]['id']},
             "type": "status"
         }
 
         # 3. Thông báo cho Ứng viên (Type: system)
         notif_candidate = {
-            "user_id": user_id,
+            "user_id": request.user_id,
             "title": "✅ Ứng tuyển thành công",
             "content": f"Hồ sơ của bạn đã được gửi tới {job.data['company_name']}.",
-            "data": {"type": "system", "job_id": job_id},
+            "data": {"type": "system", "job_id": request.job_id},
             "type": "system"
         }
 
         supabase_client.table('notifications').insert([notif_employer, notif_candidate]).execute()
 
         return {"success": True, "match_score": final_score, "ai_recommendation": recommendation_label}
+    except HTTPException as e:
+        raise e
     except Exception as e:
         logger.error(f"Lỗi ứng tuyển: {e}")
         raise HTTPException(500, str(e))
